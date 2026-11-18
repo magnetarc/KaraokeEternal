@@ -1,0 +1,8 @@
+.songbook .basis { display:block; color:#8f98ac; font-size:10px; margin-top:7px; }
+.songbook .error { background:#4c242a; color:#ffd1d6; padding:16px; border-radius:8px; }
+.songbook .error button { padding:8px; margin-left:12px; }
+.songbook [aria-busy=true] { opacity:.6; }
+.notes { color:#a5acbd; font-size:11px; line-height:1.6; margin:12px 0 20px; }
+.notes summary { cursor:pointer; }
+@media(min-width:801px) { .songbook > div { max-width:1160px; } }
+@media(max-width:480px) { .songbook .basis { font-size:9px; } .songbook .categories > label:last-child { grid-column:auto; } }

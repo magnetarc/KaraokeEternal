@@ -12,6 +12,7 @@ export type CatalogueEntry = CatalogueInput & {
   approved?: SongCategories, applied?: string[], skipped?: string[],
   searchArtist?: string, searchTitle?: string,
   candidateCount?: number,
+  discoveryFeatured?: boolean,
 }
 export const identity = (value: string) => value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim()
 export const entryKey = (artist: string, title: string) => JSON.stringify([identity(artist), identity(title)])

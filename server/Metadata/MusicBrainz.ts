@@ -23,7 +23,7 @@ export class MusicBrainzClient {
   constructor (private store: MetadataStore = metadataStore, private fetcher: typeof fetch = fetch, private now = Date.now, private wait = sleep, private spacing = 1200) {}
   // Every request, including retries and work lookups, shares this one lane.
   get (resource: string, params: Record<string, string> = {}): Promise<{ data: Json, url: string, retrievedAt: string }> {
-    if (!/^(recording|work)(\/[a-f0-9-]{36})?$/.test(resource)) return Promise.reject(new Error('Invalid MusicBrainz resource'))
+    if (!/^(recording|work|artist)(\/[a-f0-9-]{36})?$/.test(resource)) return Promise.reject(new Error('Invalid MusicBrainz resource'))
     const url = new URL(resource, ROOT)
     for (const [k, v] of Object.entries({ ...params, fmt: 'json' })) url.searchParams.set(k, v)
     const key = url.href

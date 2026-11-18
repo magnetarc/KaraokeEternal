@@ -1,0 +1,19 @@
+name: Modern test container
+on:
+  push:
+    branches: [modern-browser]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build isolated test image
+        run: docker build -f Dockerfile.test -t karaoke-modern-test:ci .
+      - name: Test metadata import and HTTP startup
+        run: node scripts/docker-smoke.mjs karaoke-modern-test:ci

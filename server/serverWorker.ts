@@ -19,6 +19,7 @@ import Media from './Media/Media.js'
 import Prefs from './Prefs/Prefs.js'
 import libraryRouter from './Library/router.js'
 import metadataRouter from './Metadata/router.js'
+import songbookRouter from './Metadata/songbookRouter.js'
 import mediaRouter from './Media/router.js'
 import prefsRouter from './Prefs/router.js'
 import providersRouter from './Providers/router.js'
@@ -350,6 +351,7 @@ async function serverWorker ({ env, startPathScanner, startFileScanner, stopPath
 
   baseRouter.use(libraryRouter.routes())
   baseRouter.use(metadataRouter.routes())
+  baseRouter.use(songbookRouter.routes())
   baseRouter.use(mediaRouter.routes())
   baseRouter.use(prefsRouter.routes())
   baseRouter.use(providersRouter.routes())
@@ -361,7 +363,7 @@ async function serverWorker ({ env, startPathScanner, startFileScanner, stopPath
   const createIndexMiddleware = (content) => {
     const indexRoutes = [
       urlPath,
-      ...['account', 'library', 'queue', 'player', 'catalogue'].map(r => urlPath + r + '/'),
+      ...['account', 'library', 'queue', 'player', 'catalogue', 'songbook'].map(r => urlPath + r + '/'),
     ]
 
     content = content.replace('<base href="/">', `<base href="${urlPath}">`)

@@ -6,11 +6,13 @@ import AccountView from 'routes/Account/views/AccountView'
 import LibraryView from 'routes/Library/views/LibraryView'
 import QueueView from 'routes/Queue/views/QueueView'
 import CatalogueView from 'routes/Library/views/CatalogueView'
+import SongbookView from 'routes/Library/views/SongbookView'
 
 const PlayerView = React.lazy(() => import('routes/Player/views/PlayerView'))
 
 const AppRoutes = () => (
   <Routes>
+    <Route path='/songbook' element={<RequireAuth path='/songbook' redirectTo='/account'><SongbookView /></RequireAuth>} />
     <Route path='/account' element={<AccountView />} />
     <Route path='/catalogue' element={<RequireAuth path='/catalogue' redirectTo='/account'><CatalogueView /></RequireAuth>} />
     <Route

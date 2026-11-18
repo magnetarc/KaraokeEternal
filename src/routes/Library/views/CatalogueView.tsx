@@ -8,7 +8,7 @@ import styles from './CatalogueView.css'
 
 const api = new HttpApi('catalogue')
 type Listing = { entries: CatalogueEntry[], total: number, counts: Record<string, number>, cacheSize: number, active: boolean }
-type Detail = CatalogueEntry & { sources: CatalogueInput[] }
+type Detail = CatalogueEntry & { sources: CatalogueInput[], discoverySuggestion?: { categories: SongCategories, styleBasis: string, provenance: { model: string, policy: string } } }
 const initial: Listing = { entries: [], total: 0, counts: {}, cacheSize: 0, active: false }
 const labels: Record<string, string> = { new: 'Not looked up', queued: 'Waiting', working: 'Looking up', review: 'Needs review', approved: 'Approved', rejected: 'Rejected', failed: 'Lookup failed' }
 
@@ -43,6 +43,7 @@ function Review ({ entry, close, changed }: { entry: Detail, close: () => void, 
     <h2 id='review-title'>{entry.title}</h2><p className={styles.artist}>{entry.artist}</p>
     <p>{entry.variants} source {entry.variants === 1 ? 'entry' : 'entries'} · {entry.librarySongId ? 'Linked to a playable song' : 'Metadata only · audio is not imported'}</p>
     <details><summary>Original catalogue entries</summary>{entry.sources.slice(0, 30).map((s, i) => <p key={i}>{s.artist} — {s.sourceTitle} <small>({s.source})</small></p>)}</details>
+    {entry.discoverySuggestion && <details><summary>Discovery suggestions · unreviewed</summary><p>{entry.discoverySuggestion.categories.genres?.join(', ') || 'No suggested styles'} · {entry.discoverySuggestion.styleBasis.replaceAll('_', ' ')}</p><p>Model: {entry.discoverySuggestion.provenance.model}. {entry.discoverySuggestion.provenance.policy}</p><p>These suggestions help browsing. They do not approve a MusicBrainz recording match. Use the full songbook’s Edit song details control to save a manual decision.</p></details>}
     <details><summary>Revise the search wording</summary><p>The original catalogue entry stays unchanged. Queue the revised search, then start or resume lookups.</p><form onSubmit={e => { e.preventDefault(); act('search', { artist: searchArtist, title: searchTitle }) }}><div className={styles.fields}><label>Search artist<input value={searchArtist} maxLength={500} required onChange={e => setSearchArtist(e.target.value)} /></label><label>Search title<input value={searchTitle} maxLength={500} required onChange={e => setSearchTitle(e.target.value)} /></label></div><button disabled={busy || entry.state === 'working'}>Queue revised search</button></form></details>
     <h3>Recording candidates</h3><p className={styles.muted}>Choose the intended recording, then resume lookups to retrieve its categories. Up to 100 results are shown; revise the search if your version is missing. Search rank and an early date do not prove originality.</p>
     {!!entry.candidates.length && <label>Order candidates <select value={candidateOrder} onChange={e => setCandidateOrder(e.target.value)}><option value='rank'>Search rank</option><option value='date'>Earliest reported release</option></select></label>}

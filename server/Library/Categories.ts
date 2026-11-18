@@ -3,7 +3,9 @@ import { validateCategories, type SongCategories } from '../../shared/catalog.js
 
 export default class Categories {
   static getAll (): Record<number, SongCategories> {
-    return Object.fromEntries(db.all<{ songId: number, data: string }>('SELECT songId, data FROM songCategories').map(row => [row.songId, JSON.parse(row.data)]))
+    // Explicit library decisions, including intentional blanks, always win.
+    return Object.fromEntries(db.all<{ songId: number, data: string }>(`SELECT librarySongId AS songId,categories AS data FROM catalogueBrowse WHERE librarySongId IS NOT NULL
+      UNION ALL SELECT songId,data FROM songCategories`).map(row => [row.songId, JSON.parse(row.data)]))
   }
 
   static set (songId: number, input: unknown, manual = true): SongCategories {

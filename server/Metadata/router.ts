@@ -33,7 +33,7 @@ router.post('/queue', ctx => { store.queue((ctx.request.body as { ids?: unknown 
 router.post('/start', ctx => { worker.start(); ctx.body = { active: true } })
 router.post('/pause', ctx => { worker.pause(); ctx.body = { active: false } })
 router.get('/export', ctx => { ctx.set('Content-Disposition', 'attachment; filename="reviewed-catalogue.json"'); ctx.body = store.export() })
-router.get('/:id', ctx => { const value = id(ctx); ctx.body = { ...store.get(value), sources: store.sources(value) } })
+router.get('/:id', ctx => { const value = id(ctx); const suggestion = store.sql.get<{ data: string }>('SELECT data FROM catalogueSuggestions WHERE entryId=?', [value]); ctx.body = { ...store.get(value), sources: store.sources(value), discoverySuggestion: suggestion ? JSON.parse(suggestion.data) : null } })
 router.post('/:id/select', ctx => { ctx.body = store.select(id(ctx), String((ctx.request.body as { recordingId?: unknown })?.recordingId ?? '')) })
 router.post('/:id/search', ctx => { ctx.body = store.search(id(ctx), ctx.request.body) })
 router.post('/:id/approve', ctx => {

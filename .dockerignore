@@ -1,0 +1,10 @@
+.git
+node_modules
+build
+.test-instance
+qa-artifacts
+*.log
+*.sqlite3*
+*.zip
+docs
+__pycache__

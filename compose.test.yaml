@@ -1,0 +1,23 @@
+name: karaoke-modern-test
+services:
+  karaoke-modern-test:
+    image: karaoke-modern-test:local
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    ports:
+      - "8092:8080"
+    volumes:
+      - modern-test-config:/config
+      # Optional: mount EXTRACTED media read-only, then add /media in Account.
+      # - /absolute/nas/path/to/extracted/karaoke:/media:ro
+    restart: unless-stopped
+  import-metadata:
+    image: karaoke-modern-test:local
+    profiles: ["import"]
+    volumes:
+      - modern-test-config:/config
+      - ./seed:/seed:ro
+    command: ["node", "scripts/catalogue-bundle.mjs", "import", "--database", "/config/database.sqlite3", "--bundle", "/seed/catalogue-metadata.json", "--isolated-test"]
+volumes:
+  modern-test-config:

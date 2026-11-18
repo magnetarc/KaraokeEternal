@@ -18,3 +18,5 @@ qa-artifacts/
 .claude
 .playwright
 .playwright-cli
+__pycache__/
+*.pyc

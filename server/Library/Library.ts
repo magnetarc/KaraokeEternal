@@ -5,6 +5,7 @@ import { performance } from 'perf_hooks'
 import { Song, Artist } from '../../shared/types.js'
 import Media from '../Media/Media.js'
 import Categories from './Categories.js'
+import { linkCatalogueSong } from '../Metadata/linkSong.js'
 
 const log = getLogger('Library')
 
@@ -215,6 +216,7 @@ class Library {
       }
     }
 
+    linkCatalogueSong(match.artist, match.title, match.songId)
     return match
   }
 

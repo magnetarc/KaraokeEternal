@@ -1,5 +1,26 @@
 # Modern browser test branch
 
+## Full songbook and portable test deployment (overnight build)
+
+`/songbook` searches the entire staged collection through a full-text index,
+with server pagination, suggested styles/collections, private favourites,
+host picks and a confirmed manual category editor. It clearly separates indexed
+entries from scanned, playable media. `/library` retains the playable modern
+browser and its queue preview; `/queue` has visible Skip/Remove controls.
+
+The in-chat enrichment uses GPT-6 Luna for bulk artist context and sparse song
+recognition, with a focused stronger-model audit/recognition pass. Styles and
+editorial popularity remain unverified suggestions. Model-only language, decade
+and voice allocation are withheld after the audit found version inference errors.
+Unknowns remain blank. Existing host decisions, including blanks, always win.
+Exact artist/title identities link staged entries and favourites when media scans.
+
+See [TEST-DEPLOYMENT.md](TEST-DEPLOYMENT.md) for metadata-only seed export/import,
+a separate Docker test project, read-only media mounting and deployment limits.
+The personal catalogue, classification outputs and evidence stay in the OneDrive
+project, excluded from Git. Public API lookup is keyless; no standalone LLM API
+integration or API key is required for the saved in-chat categorisation pass.
+
 ## Metadata workspace and discovery ranking (18 November 2026)
 
 The host-only `/catalogue` route imports Artist/Title CSV or JSON, including legacy Windows-1252 song books. Source entries are retained; exact normalized artist/title pairs share a metadata entry, while live/remix/cover wording is preserved. Imports are staged metadata, not playable songs. Invalid batches write nothing; completed batches can be safely imported again.
@@ -8,7 +29,7 @@ Queue up to 25 entries, then Start / resume. Public MusicBrainz requests share o
 
 Search returns up to 100 candidates. **Choose the intended recording explicitly**, then resume its detail lookup. Exact title/artist text, search rank and the oldest date among a limited set do not establish the original recording. Revise search wording without changing the imported source. Search falls back to the first credited artist only when the full credit finds nothing; those results require comparison.
 
-The review shows recording genre votes, lyric languages from linked works, recording release-date evidence, source URLs and retrieval dates. Unrelated release-title language is not used for lyric language. The highest-voted genre is initially checked; multiple languages remain unchecked until chosen. Solo/duet/group are manual decisions. Approval requires an explicit identity/category confirmation. Exported approved JSON includes sources and evidence. There are no automatic approvals, LLM factual classifications, periodic metadata refreshes or media-file writes.
+The review shows recording genre votes, lyric languages from linked works, recording release-date evidence, source URLs and retrieval dates. Unrelated release-title language is not used for lyric language. The highest-voted genre is initially checked; multiple languages remain unchecked until chosen. Solo/duet/group are manual decisions. Approval requires an explicit identity/category confirmation. Exported approved JSON includes sources and evidence. There are no automatic approvals, automatic LLM factual approvals, periodic metadata refreshes or media-file writes.
 
 Approved categories can fill empty fields on an unambiguously linked library song. Existing manually edited category records, including intentionally blank fields, are protected as a whole. Existing nonempty imported fields are also retained. Changing a category in the song browser marks that record manual. Every approval/rejection has an audit record; choosing a new candidate clears the staged approval but does not undo earlier library categories. Review skipped fields, and use the manual editor for corrections.
 

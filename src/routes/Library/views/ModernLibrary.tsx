@@ -108,6 +108,7 @@ export default function ModernLibrary () {
       <div className={styles.shell}>
         <div className={styles.topline}><span className={styles.brand}>♫ <strong>Karaoke Eternal</strong><span className={styles.preview}>BROWSER PREVIEW</span></span><span>{user.isAdmin && <Link to='/catalogue'>Organise library · </Link>}<Link to='/library?view=classic'>Original search ↗</Link></span></div>
         {isTest && <p className={styles.demo}>TEST LIBRARY · Fictional songs with synthetic demo audio. Your live karaoke library is separate.</p>}
+        <p className={styles.tip}><Link to='/songbook'>Explore the full songbook →</Link> · Search the indexed collection and save favourites.</p>
         <div className={styles.layout}>
           <section className={styles.main} aria-label='Song browser'>
             <header className={styles.hero}>
