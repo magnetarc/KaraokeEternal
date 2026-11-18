@@ -14,8 +14,11 @@ from any NAS installation. It cannot serve the archive contents as audio.
 
 ## Prepare a fresh NAS test container
 
-Docker is not available on the development PC, so the container build/run must
-be checked on a Docker host. The same compiled Node server is tested locally.
+The Docker build, non-root startup, isolated metadata import and HTTP route
+checks pass on a Linux GitHub Actions runner using fictional seed entries.
+See the fork’s Modern test container workflow. The actual NAS mount/scan and
+real media playback still need deployment checks. The development PC uses
+the same compiled Node server directly.
 
 Use a new project folder for this checkout. Copy the supplied metadata bundle
 to `seed/catalogue-metadata.json`. Keep the named `modern-test-config` volume;
