@@ -6,9 +6,10 @@ export default class Categories {
     return Object.fromEntries(db.all<{ songId: number, data: string }>('SELECT songId, data FROM songCategories').map(row => [row.songId, JSON.parse(row.data)]))
   }
 
-  static set (songId: number, input: unknown): SongCategories {
+  static set (songId: number, input: unknown, manual = true): SongCategories {
     const categories = validateCategories(input)
     db.run('INSERT INTO songCategories (songId, data) VALUES (?, ?) ON CONFLICT(songId) DO UPDATE SET data = excluded.data', [songId, JSON.stringify(categories)])
+    if (manual) db.run('INSERT INTO categoryProtection(songId,locked,evidence) VALUES (?,1,?) ON CONFLICT(songId) DO UPDATE SET locked=1,evidence=excluded.evidence', [songId, '{}'])
     return categories
   }
 }

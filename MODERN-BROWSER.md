@@ -1,5 +1,33 @@
 # Modern browser test branch
 
+## Metadata workspace and discovery ranking (18 November 2026)
+
+The host-only `/catalogue` route imports Artist/Title CSV or JSON, including legacy Windows-1252 song books. Source entries are retained; exact normalized artist/title pairs share a metadata entry, while live/remix/cover wording is preserved. Imports are staged metadata, not playable songs. Invalid batches write nothing; completed batches can be safely imported again.
+
+Queue up to 25 entries, then Start / resume. Public MusicBrainz requests share one lane with at least 1.2 seconds between starts, an identified User-Agent, persistent response caching, global busy-service cooldown, bounded retries and progress checkpoints. Restarting leaves work paused. Pause finishes the current entry. No MusicBrainz account or API key is used.
+
+Search returns up to 100 candidates. **Choose the intended recording explicitly**, then resume its detail lookup. Exact title/artist text, search rank and the oldest date among a limited set do not establish the original recording. Revise search wording without changing the imported source. Search falls back to the first credited artist only when the full credit finds nothing; those results require comparison.
+
+The review shows recording genre votes, lyric languages from linked works, recording release-date evidence, source URLs and retrieval dates. Unrelated release-title language is not used for lyric language. The highest-voted genre is initially checked; multiple languages remain unchecked until chosen. Solo/duet/group are manual decisions. Approval requires an explicit identity/category confirmation. Exported approved JSON includes sources and evidence. There are no automatic approvals, LLM factual classifications, periodic metadata refreshes or media-file writes.
+
+Approved categories can fill empty fields on an unambiguously linked library song. Existing manually edited category records, including intentionally blank fields, are protected as a whole. Existing nonempty imported fields are also retained. Changing a category in the song browser marks that record manual. Every approval/rejection has an audit record; choosing a new candidate clears the staged approval but does not undo earlier library categories. Review skipped fields, and use the manual editor for corrections.
+
+`Popular first` is now the song browser default. Text matching still filters the same songs. For searches, exact titles precede title prefixes, title substrings and combined artist/title matches. Within a relevance tier, host-promoted songs precede usage ranking; usage score is 5 × shared song favourites + 2 × current-room queue entries + shared artist favourites. Remaining ties use title and song ID. This is local discovery ranking, not external chart data or a lifetime play count. Host promotion is in Edit categories. Alphabetical, artist and duration ordering remain available.
+
+The prepared OneDrive test database contains the Rigmar song book as staged metadata; Git and source archives exclude that personal runtime data. A fresh clone contains only the fictional seed library. Offline import/pilot helpers refuse a running preview PID and any database without the test marker:
+
+```powershell
+node scripts/import-catalogue.mjs 'path\Raw CSV.csv' windows-1252
+node scripts/pilot-metadata.mjs
+# Before/after browser verification, with preview stopped:
+node scripts/metadata-qa-fixture.mjs
+node scripts/metadata-qa-fixture.mjs clean
+# With the marked preview running:
+python scripts/qa-metadata.py
+```
+
+The bounded pilot deliberately samples 25 titles across eras/styles/languages; it is not a random sample or an accuracy audit. The first pilot exposed inappropriate version/date suggestions from automatic candidate selection. That behaviour was removed before delivery; preliminary unapproved snapshots are retained separately. Three explicit engineering selections demonstrate detail evidence without approving their correspondence to the karaoke audio. Actual-phone, NAS container and MP3+G testing remain future work.
+
 Fork of [Karaoke Eternal](https://github.com/bhj/KaraokeEternal), retaining its ISC licence and existing playback, rooms, favourites and round-robin queue. Based on upstream v2.1.0, commit `5d46aca8cdea867d6a3c6933e63e480adba525b5`.
 
 This is a separate local test instance. Nothing here installs an Android app or deploys to a NAS.

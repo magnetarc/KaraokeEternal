@@ -42,7 +42,7 @@ function CategoryEditor ({ song, onClose }: { song: Song, onClose: () => void })
         <div className={styles.editGrid}>
           {(['genre', 'language', 'decade'] as const).map(key => (
             <label key={key}>{key === 'decade' ? 'Decade (e.g. 1980s)' : key === 'genre' ? 'Genre' : 'Language'}
-              <input type='text' maxLength={40} value={tags[key]} onChange={e => setTags({ ...tags, [key]: e.target.value })} />
+              <input type='text' maxLength={40} value={tags[key]} onChange={e => setTags({ ...tags, [key]: e.target.value, ...(key === 'genre' ? { genres: undefined } : key === 'language' ? { languages: undefined } : {}) })} />
             </label>
           ))}
           <label>Performance<select value={tags.performance} onChange={e => setTags({ ...tags, performance: e.target.value })}>
@@ -50,6 +50,7 @@ function CategoryEditor ({ song, onClose }: { song: Song, onClose: () => void })
           </select></label>
         </div>
         <label>Collections (separate with commas)<input type='text' value={collections} onChange={e => setCollections(e.target.value)} placeholder='Party starters, Crowd favourites' /></label>
+        <label><input type='checkbox' checked={!!tags.featured} onChange={e => setTags({ ...tags, featured: e.target.checked })} /> Promote in Popular first</label>
         <p className={styles.muted}>Categories are shared with everyone. Leave a field blank if you are unsure.</p>
         {error && <p role='alert'>{error}</p>}
         <div className={styles.dialogActions}><button type='button' onClick={onClose} disabled={saving}>Cancel</button><button className={styles.primary} disabled={saving}>{saving ? 'Saving…' : 'Save categories'}</button></div>
@@ -65,6 +66,7 @@ export default function ModernLibrary () {
   const songs = useAppSelector(state => state.songs)
   const artists = useAppSelector(state => state.artists.entities)
   const user = useAppSelector(state => state.user)
+  const sharedStars = useAppSelector(state => state.starCounts)
   const starredSongs = useAppSelector(state => ensureState(state.userStars).starredSongs)
   const stars = useMemo(() => new Set(starredSongs), [starredSongs])
   const queue = useAppSelector(getRoundRobinQueue)
@@ -84,10 +86,15 @@ export default function ModernLibrary () {
   const container = useRef<HTMLDivElement>(null)
   const allSongs = useMemo(() => songs.result.map(id => songs.entities[id]), [songs])
   const options = useMemo(() => {
-    const values = (key: 'genre' | 'decade' | 'language' | 'performance' | 'collections') => [...new Set(allSongs.flatMap(s => s.categories?.[key] ?? []).filter(Boolean))].sort()
+    const values = (key: 'genre' | 'decade' | 'language' | 'performance' | 'collections') => [...new Set(allSongs.flatMap(s => key === 'genre' ? [s.categories?.genre, ...(s.categories?.genres ?? [])] : key === 'language' ? [s.categories?.language, ...(s.categories?.languages ?? [])] : s.categories?.[key] ?? []).filter(Boolean))].sort()
     return { genre: values('genre'), decade: values('decade'), language: values('language'), performance: values('performance'), collection: values('collections') }
   }, [allSongs])
-  const results = useMemo(() => browseSongs(allSongs, artists, stars, filters), [allSongs, artists, stars, filters])
+  const popularity = useMemo(() => {
+    const queued: Record<number, number> = {}
+    for (const id of queue.result) { const songId = queue.entities[id].songId; queued[songId] = (queued[songId] ?? 0) + 1 }
+    return { songs: sharedStars.songs, artists: sharedStars.artists, queued }
+  }, [sharedStars, queue])
+  const results = useMemo(() => browseSongs(allSongs, artists, stars, filters, popularity), [allSongs, artists, stars, filters, popularity])
   const pages = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
   const safePage = Math.min(page, pages - 1)
   const update = (patch: Partial<BrowseFilters>) => { setFilters(previous => ({ ...previous, ...patch })); setPage(0) }
@@ -99,7 +106,7 @@ export default function ModernLibrary () {
   return (
     <main className={styles.browser} ref={container} style={{ paddingTop: headerHeight + 24, paddingBottom: footerHeight + 28, height: innerHeight }}>
       <div className={styles.shell}>
-        <div className={styles.topline}><span className={styles.brand}>♫ <strong>Karaoke Eternal</strong><span className={styles.preview}>BROWSER PREVIEW</span></span><Link to='/library?view=classic'>Original search ↗</Link></div>
+        <div className={styles.topline}><span className={styles.brand}>♫ <strong>Karaoke Eternal</strong><span className={styles.preview}>BROWSER PREVIEW</span></span><span>{user.isAdmin && <Link to='/catalogue'>Organise library · </Link>}<Link to='/library?view=classic'>Original search ↗</Link></span></div>
         {isTest && <p className={styles.demo}>TEST LIBRARY · Fictional songs with synthetic demo audio. Your live karaoke library is separate.</p>}
         <div className={styles.layout}>
           <section className={styles.main} aria-label='Song browser'>
@@ -126,7 +133,8 @@ export default function ModernLibrary () {
               ))}
             </div>
             {options.genre.length === 0 && !library.isLoading && <p className={styles.tip}>A little organisation goes a long way. {user.isAdmin ? 'Use “Edit categories” on a song to add genres, decades and collections.' : 'Your host can add genres, decades and collections.'}</p>}
-            <div className={styles.resultsTop}><div><h2>{active ? 'Your matches' : 'The songbook'}</h2><p aria-live='polite'>{library.isLoading ? 'Loading library…' : `${results.length.toLocaleString()} songs`}{active && <> · <button onClick={() => update(defaultFilters)}>Clear filters</button></>}</p></div><label>Sort by<select value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value='title'>Song title</option><option value='artist'>Artist</option><option value='duration'>Shortest first</option></select></label></div>
+            <div className={styles.resultsTop}><div><h2>{active ? 'Your matches' : 'The songbook'}</h2><p aria-live='polite'>{library.isLoading ? 'Loading library…' : `${results.length.toLocaleString()} songs`}{active && <> · <button onClick={() => update(defaultFilters)}>Clear filters</button></>}</p></div><label>Sort by<select aria-label='Sort by' value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value='popular'>Popular first</option><option value='title'>Song title</option><option value='artist'>Artist</option><option value='duration'>Shortest first</option></select></label></div>
+            {filters.sort === 'popular' && <p className={styles.muted}>Exact title matches first, then host picks, shared favourites and this room’s queue activity.</p>}
             {user.isAdmin && <label className={styles.untagged}><input type='checkbox' checked={filters.untagged} onChange={e => update({ untagged: e.target.checked })} /> Show uncategorised songs</label>}
             <p className={styles.srOnly} role='status'>{message}</p>
             <div className={styles.songlist}>

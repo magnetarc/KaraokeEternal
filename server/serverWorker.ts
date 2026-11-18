@@ -18,6 +18,7 @@ import koaStatic from 'koa-static'
 import Media from './Media/Media.js'
 import Prefs from './Prefs/Prefs.js'
 import libraryRouter from './Library/router.js'
+import metadataRouter from './Metadata/router.js'
 import mediaRouter from './Media/router.js'
 import prefsRouter from './Prefs/router.js'
 import providersRouter from './Providers/router.js'
@@ -284,7 +285,7 @@ async function serverWorker ({ env, startPathScanner, startFileScanner, stopPath
     multipart: true,
     urlencoded: false,
     text: false,
-    jsonLimit: '16kb', // largest JSON bodies (room/prefs objects) are well under 1kb
+    jsonLimit: '256kb', // bounded catalogue imports: at most 100 artist/title rows
     formidable: {
       maxFileSize: 128 * 1024, // only upload is the avatar; IMG_MAX_LENGTH (50KB)
       maxFiles: 1,
@@ -348,6 +349,7 @@ async function serverWorker ({ env, startPathScanner, startFileScanner, stopPath
   })
 
   baseRouter.use(libraryRouter.routes())
+  baseRouter.use(metadataRouter.routes())
   baseRouter.use(mediaRouter.routes())
   baseRouter.use(prefsRouter.routes())
   baseRouter.use(providersRouter.routes())
@@ -359,7 +361,7 @@ async function serverWorker ({ env, startPathScanner, startFileScanner, stopPath
   const createIndexMiddleware = (content) => {
     const indexRoutes = [
       urlPath,
-      ...['account', 'library', 'queue', 'player'].map(r => urlPath + r + '/'),
+      ...['account', 'library', 'queue', 'player', 'catalogue'].map(r => urlPath + r + '/'),
     ]
 
     content = content.replace('<base href="/">', `<base href="${urlPath}">`)

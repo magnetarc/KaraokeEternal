@@ -20,4 +20,14 @@ describe('modern song browser', () => {
     expect(browseSongs(songs, artists, new Set(), { ...defaultFilters, sort: 'duration' }).map(s => s.songId)).toEqual([2, 1])
     expect(songs.map(s => s.songId)).toEqual([1, 2])
   })
+  it('puts a promoted Perfect by Ed Sheeran above other exact matches, while keeping all matches', () => {
+    const options: Song[] = [
+      { ...songs[0], songId: 10, artistId: 2, title: 'Perfect', categories: { ...emptyCategories, featured: false } },
+      { ...songs[0], songId: 11, artistId: 3, title: 'Perfect', categories: { ...emptyCategories, featured: true } },
+      { ...songs[0], songId: 12, artistId: 3, title: 'Perfectly Fine', categories: { ...emptyCategories, featured: true } },
+    ]
+    const names = { 2: { artistId: 2, name: 'Other artist', songIds: [10] }, 3: { artistId: 3, name: 'Ed Sheeran', songIds: [11, 12] } }
+    expect(browseSongs(options, names, new Set(), { ...defaultFilters, query: 'perfect' }, { songs: { 10: 100 } }).map(s => s.songId)).toEqual([11, 10, 12])
+    expect(browseSongs(options.map(s => ({ ...s, categories: { ...emptyCategories } })), names, new Set(), { ...defaultFilters, query: 'perfect' }, { songs: { 11: 8 } }).map(s => s.songId)).toEqual([11, 10, 12])
+  })
 })

@@ -69,11 +69,15 @@ with sync_playwright() as p:
     dialog = page.get_by_role('dialog')
     dialog.get_by_label('Genre', exact=True).fill('Synthpop')
     dialog.get_by_label('Collections (separate with commas)', exact=True).fill('Party starters, Test collection')
+    dialog.get_by_label('Promote in Popular first', exact=True).check()
     dialog.get_by_role('button', name='Save categories', exact=True).click()
     expect(dialog).not_to_be_visible()
     page.reload()
     expect(row).to_contain_text('Synthpop')
     expect(page.get_by_label('Collection', exact=True).locator('option', has_text='Test collection')).to_have_count(1)
+    expect(page.get_by_label('Sort by', exact=True)).to_have_value('popular')
+    expect(page.get_by_role('article').first).to_contain_text('After the Applause')
+    passed('Popular first defaults on, and a host promotion persists and rises to the top')
     passed('host category editor persists changes across reload')
     # Restore sample metadata so the review library remains useful.
     assert host.request.put(BASE + '/api/song/1/categories', data={'genre':'Pop','language':'English','decade':'2020s','performance':'Solo','collections':['Party starters']}).ok
