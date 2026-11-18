@@ -168,6 +168,10 @@ const QueueItem = ({
           </div>
         </div>
 
+        <div className={styles.visibleActions}>
+          {isSkippable && <button onClick={() => { if (confirm('Skip the current song and play the next one?')) handleSkipClick() }}>Skip to next →</button>}
+          {isRemovable && <button onClick={() => { if (confirm('Remove this song from the queue?')) handleRemoveClick() }}>Remove</button>}
+        </div>
         <Buttons btnWidth={56} isExpanded={expanded} className={styles.btnContainer}>
           {isErrored && (
             <Button

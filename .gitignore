@@ -4,6 +4,8 @@ dockerfiles/
 docs/public/
 docs/resources/
 node_modules/
+.test-instance/
+qa-artifacts/
 
 .DS_Store
 *.log

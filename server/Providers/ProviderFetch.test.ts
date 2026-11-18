@@ -175,12 +175,12 @@ describe('ProviderFetch.handleComplete', () => {
       itemId: 'a1',
       roomId: 7,
       userId: 3,
-      absPath: '/library/Artist Name - Song Title.mp4',
+      absPath: path.resolve('/library/Artist Name - Song Title.mp4'),
     })
 
     expect(startFileScanner).toHaveBeenCalledTimes(1)
     expect(startFileScanner.mock.calls[0][0]).toEqual({
-      absPath: '/library/Artist Name - Song Title.mp4',
+      absPath: path.resolve('/library/Artist Name - Song Title.mp4'),
       pathId: 1,
     })
 

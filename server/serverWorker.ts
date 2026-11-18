@@ -158,9 +158,9 @@ async function serverWorker ({ env, startPathScanner, startFileScanner, stopPath
     IPC.use(IPCPrefsActions(io))
 
     // success callback in 3rd arg
-    server.listen(env.KES_PORT, () => {
+    server.listen(env.KES_PORT, env.KES_HOST, () => {
       const port = server.address().port
-      const url = `http://${getIPAddress()}${port === 80 ? '' : ':' + port}${urlPath}`
+      const url = `http://${env.KES_HOST || getIPAddress()}${port === 80 ? '' : ':' + port}${urlPath}`
 
       // in reverse-proxy mode the direct URL would only get a 403
       if (proxyTrust.enabled) {

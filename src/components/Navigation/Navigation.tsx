@@ -8,32 +8,41 @@ const Navigation = ({ ref }: { ref?: React.Ref<HTMLDivElement> }) => (
   <div className={clsx(styles.container, 'bg-blur')} ref={ref}>
     <NavLink to='/library' replace className={({ isActive }) => clsx(isActive && styles.active)} aria-label='Library'>
       {({ isActive }) => (
+        <>
         <Button
           icon='NAV_LIBRARY'
           as='span'
           animateClassName={styles.btnAnimate}
           cancelAnimation={!isActive}
         />
+        <small>Browse</small>
+        </>
       )}
     </NavLink>
     <NavLink to='/queue' replace className={({ isActive }) => clsx(isActive && styles.active)} aria-label='Queue'>
       {({ isActive }) => (
+        <>
         <Button
           icon='NAV_SUBSCRIPTIONS'
           as='span'
           animateClassName={styles.btnAnimate}
           cancelAnimation={!isActive}
         />
+        <small>Queue</small>
+        </>
       )}
     </NavLink>
     <NavLink to='/account' replace className={({ isActive }) => clsx(isActive && styles.active)} aria-label='Account'>
       {({ isActive }) => (
+        <>
         <Button
           icon={isActive ? 'NAV_ACCOUNT_ACTIVE' : 'NAV_ACCOUNT'}
           as='span'
           animateClassName={styles.btnAnimate}
           cancelAnimation={!isActive}
         />
+        <small>Account</small>
+        </>
       )}
     </NavLink>
   </div>

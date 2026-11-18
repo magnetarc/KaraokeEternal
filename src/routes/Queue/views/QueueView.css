@@ -8,3 +8,7 @@
 .container h1 {
   font-family: var(--font-family-custom);
 }
+.summary { max-width:960px; margin:24px auto; color:#f2f3f6; }
+.summary h1 { font:650 28px system-ui,sans-serif; margin:0 0 10px; }
+.summary p { color:#a5acbd; font-size:13px; line-height:1.6; max-width:560px; }
+.summary a { color:#ffb978; font-size:13px; }

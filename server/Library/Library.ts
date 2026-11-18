@@ -4,6 +4,7 @@ import getLogger from '../lib/Log.js'
 import { performance } from 'perf_hooks'
 import { Song, Artist } from '../../shared/types.js'
 import Media from '../Media/Media.js'
+import Categories from './Categories.js'
 
 const log = getLogger('Library')
 
@@ -40,6 +41,7 @@ class Library {
       entities: {},
     }
 
+    const categories = Categories.getAll()
     // query #1: songs
     {
       const query = sql`
@@ -55,6 +57,7 @@ class Library {
 
       for (const row of rows) {
         delete row.isPreferred
+        row.categories = categories[row.songId]
         songs.entities[row.songId] = row
         songs.result.push(row.songId)
 
@@ -114,6 +117,7 @@ class Library {
 
     return {
       [songId]: {
+        categories: Categories.getAll()[songId],
         artistId: media.artistId,
         duration: media.duration,
         songId: media.songId,

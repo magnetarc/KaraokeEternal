@@ -14,6 +14,7 @@ const QUEUE_ITEM_HEIGHT = 92
 const QueueView = () => {
   const { innerWidth, innerHeight, headerHeight, footerHeight } = useAppSelector(state => state.ui)
   const isInRoom = useAppSelector(state => !!state.user.roomId)
+  const isAdmin = useAppSelector(state => state.user.isAdmin)
   const isLoading = useAppSelector(state => ensureState(state.queue).isLoading)
   const queue = useAppSelector(getRoundRobinQueue)
   const pending = useAppSelector(getPendingQueue)
@@ -65,6 +66,7 @@ const QueueView = () => {
         </TextOverlay>
       )}
 
+      {isInRoom && <header className={styles.summary}><h1>Tonight’s queue</h1><p>{isAdmin ? 'Host controls: skip the current song or remove any upcoming song.' : 'Remove your upcoming songs here. Skip is available when your own song is current; the host controls other singers’ songs.'}</p><Link to='/library'>＋ Find another song</Link></header>}
       <QueueList />
     </div>
   )

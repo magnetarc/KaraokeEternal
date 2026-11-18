@@ -81,7 +81,7 @@ const Header = ({ ref }: { ref?: React.Ref<HTMLDivElement> }) => {
         )}
 
       <Routes>
-        <Route path='/library' element={<LibraryHeader />} />
+        <Route path='/library' element={new URLSearchParams(location.search).get('view') === 'classic' ? <LibraryHeader /> : null} />
       </Routes>
     </div>
   )

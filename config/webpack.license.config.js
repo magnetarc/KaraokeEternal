@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'node:path'
 import licenseWebpackPlugin from 'license-webpack-plugin'
 import TerserPlugin from 'terser-webpack-plugin'
 
@@ -6,6 +7,12 @@ const { LicenseWebpackPlugin } = licenseWebpackPlugin
 
 const applyLicenseConfig = (config) => {
   config.plugins.push(new LicenseWebpackPlugin({
+    // Webpack normalizes some resource paths to forward slashes on Windows.
+    // Limit dependency discovery to node_modules so virtual/project modules
+    // cannot be mistaken for a package at an empty directory. Our ISC notice
+    // is already included explicitly below.
+    modulesDirectories: [path.resolve('node_modules')],
+    licenseTextOverrides: { 'socket.io-client': fs.readFileSync('./node_modules/socket.io-client/LICENSE', 'utf8') },
     addBanner: true,
     renderBanner: filename => '/*! See licenses in ' + filename + ' */',
     outputFilename: 'licenses.txt',

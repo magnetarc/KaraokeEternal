@@ -21,6 +21,9 @@
     "npm": ">=11"
   },
   "scripts": {
+    "build:preview": "node scripts/build-preview.mjs",
+    "test:preview": "node scripts/test-instance.mjs",
+    "test:seed": "node scripts/seed-preview.mjs",
     "docs:serve": "hugo serve --source docs -b http://localhost:1313 --bind 0.0.0.0",
     "dev": "NODE_ENV=development tsx watch server/main.ts -p 3000",
     "lint": "eslint .",

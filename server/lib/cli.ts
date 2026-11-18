@@ -28,6 +28,7 @@ const env = {
   KES_PATH_DATA: process.env.KES_PATH_DATA || getAppPath('Karaoke Eternal Server'),
   KES_PATH_WEBROOT: path.join(baseDir, 'build', 'client'),
   KES_PORT: parseInt(process.env.KES_PORT, 10) || 0,
+  KES_HOST: process.env.KES_HOST || undefined,
   KES_PROXY_CLIENT_IP_HEADER: process.env.KES_PROXY_CLIENT_IP_HEADER?.trim() || undefined,
   KES_PROXY_TRUST: process.env.KES_PROXY_TRUST?.trim() || undefined,
   KES_ROTATE_KEY: ['1', 'true'].includes(process.env.KES_ROTATE_KEY?.toLowerCase()),

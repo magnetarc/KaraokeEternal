@@ -1,5 +1,7 @@
 # Karaoke Eternal
 
+> This fork’s `modern-browser` branch adds a modern songbook, curated categories and visible queue controls. See [MODERN-BROWSER.md](MODERN-BROWSER.md) for the isolated local preview, demo accounts and validation. The upstream project overview follows below.
+
 Host awesome karaoke parties where everyone can easily find and queue songs from their phone's browser. The player is also fully browser-based with support for MP3+G, MP4 videos and WebGL visualizations. The server is self-hosted and runs on nearly everything.
 
 [![Karaoke Eternal](/docs/assets/images/README.jpg?raw=true)](/docs/assets/images/README.jpg?raw=true)

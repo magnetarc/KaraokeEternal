@@ -20,6 +20,7 @@
 }
 
 .content {
+  align-items: center;
   display: flex;
   flex: 1;
   margin: 0.5rem 0 0.5rem var(--space-s);
@@ -152,6 +153,7 @@
 }
 
 .container.current::after {
+  pointer-events: none;
   content: "";
   position: absolute;
   top: 0;
@@ -196,3 +198,7 @@
     background-position: var(--queue-item-tile-size) 0;
   }
 }
+.visibleActions { display:flex; gap:8px; align-items:center; padding:4px 8px; flex-shrink:0; position:relative; z-index:1; }
+.visibleActions button { border:1px solid #95675c; border-radius:7px; background:#38282c; color:#ffd0ba; min-height:44px; padding:10px 12px; font-size:13px; cursor:pointer; }
+.visibleActions button:focus-visible { outline:3px solid #ffd0ba; outline-offset:2px; }
+@media(max-width:540px) { .container { --image-width:56px; } .visibleActions { padding:2px; } .visibleActions button { font-size:11px; padding:8px; } .title { font-size:1rem; } .artist { font-size:.9rem; } }

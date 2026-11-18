@@ -66,16 +66,16 @@ const RequireAuth = ({
   const { isAdmin, userId } = useAppSelector(state => state.user)
   const location = useLocation()
 
-  if (path === '/player' && !isAdmin) {
-    return <Navigate to='/' replace />
-  }
-
   if (userId === null) {
     // set their originally-desired location in query parameter
     const params = new URLSearchParams(location.search)
     params.set('redirect', path)
 
     return <Navigate to={redirectTo + '?' + params.toString()} replace />
+  }
+
+  if (path === '/player' && !isAdmin) {
+    return <Navigate to='/' replace />
   }
 
   return children

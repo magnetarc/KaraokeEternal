@@ -6,6 +6,15 @@ import SearchResults from '../components/SearchResults/SearchResults'
 import TextOverlay from 'components/TextOverlay/TextOverlay'
 import Spinner from 'components/Spinner/Spinner'
 import styles from './LibraryView.css'
+import { useLocation, Link as RouterLink } from 'react-router'
+import ModernLibrary from './ModernLibrary'
+
+const BrowserView = () => {
+  const location = useLocation()
+  return new URLSearchParams(location.search).get('view') === 'classic'
+    ? <><RouterLink to='/library' style={{ position: 'fixed', top: 6, right: 12, zIndex: 20, fontSize: 12 }}>Modern browser</RouterLink><LibraryView /></>
+    : <ModernLibrary />
+}
 
 const LibraryView = () => {
   const { isAdmin } = useAppSelector(state => state.user)
@@ -54,4 +63,4 @@ const LibraryView = () => {
   )
 }
 
-export default LibraryView
+export default BrowserView

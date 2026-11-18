@@ -5,6 +5,7 @@ export interface Artist {
 }
 
 export interface Song {
+  categories?: import('./catalog.js').SongCategories
   artistId: number
   duration: number
   songId: number

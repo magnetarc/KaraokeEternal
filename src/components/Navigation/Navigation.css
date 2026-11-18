@@ -43,4 +43,9 @@
   to {
     filter: var(--btn-active-filter) drop-shadow(0 0 1px rgba(0, 0, 0, 1));
   }
-}
+}.container { background:#171a25; border-color:#35394a; }
+.container a { display:flex; flex-direction:column; align-items:center; justify-content:center; text-decoration:none; color:#a5acbd; gap:3px; padding:8px 0; }
+.container span svg { height:27px; }
+.container small { font-size:10px; font-weight:500; letter-spacing:.3px; }
+.container .active,.container .active span { color:#ffb978; filter:none; }
+.container .btnAnimate { animation:none; }
