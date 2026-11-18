@@ -55,13 +55,14 @@ def load():
 def main():
     rows,decisions,covered,profiles,chunks=load()
     audit_file=FOLDER/'Audit/proposed-patches.json'
-    audit_applied=[]; audit_conflicts=[]
+    audit_applied=[]; audit_conflicts=[]; context_withheld=set()
     if audit_file.exists():
         for patch in json.loads(audit_file.read_text(encoding='utf-8-sig'))['patches']:
             entry_id=patch['input'][0]
             if rows.get(entry_id)==patch['input'] and decisions.get(entry_id)==patch['suggestion']:
                 decisions[entry_id]=patch['replacementSuggestion']
                 audit_applied.append(entry_id)
+                if patch['changes'].get('genres')==[]: context_withheld.add(entry_id)
             else: audit_conflicts.append(entry_id)
     supplemental=[]; supplemental_models={}
     for file in sorted((FOLDER/'Audit').glob('supplemental-recognition*.json')):
@@ -101,7 +102,7 @@ def main():
                 api_context=contexts.get(artist,{})
                 api_styles=api_context.get('styles',[]) if api_context.get('state')=='candidate' else []
                 context=api_styles or model_context
-                if artist.casefold()=='chicago' or api_context.get('state')=='ambiguous': context=[]
+                if artist.casefold()=='chicago' or api_context.get('state')=='ambiguous' or entry_id in context_withheld: context=[]
                 effective=genres or context
                 basis='song_suggestion' if genres else 'artist_musicbrainz' if api_styles and context else 'artist_model' if context else 'unknown'
                 categories={'genre':effective[0] if effective else '', 'genres':effective,'language':languages[0] if languages else '', 'languages':languages,'decade':decade,'performance':performance,'collections':coll}

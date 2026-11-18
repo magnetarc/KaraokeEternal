@@ -41,8 +41,9 @@ To enable playback, uncomment the optional **read-only** media bind mount in
 compose.test.yaml and point it at extracted MP3+CDG, ZIP or video files. Add
 `/media` under Account → Media Folders and scan. Multipart RAR downloads are
 not playable media folders; extract separately only when ready and with enough
-storage. Exact artist/title matches link the staged entries, categories and saved
-favourites. Version/remix wording is retained; unmatched identities stay separate.
+storage. Exact artist/title matches, plus unique English article display variants
+used by the scanner, link the staged entries, categories and saved favourites.
+Version/remix wording is retained; ambiguous and unmatched identities stay separate.
 
 The existing live service and Shield can continue using their current address.
 Port 8092, the Docker project and config volume are independent. Check the NAS

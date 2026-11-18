@@ -2,6 +2,7 @@ import { db, type DatabaseWrapper } from '../lib/Database.js'
 import Library from '../Library/Library.js'
 import { emptyCategories, validateCategories, type SongCategories } from '../../shared/catalog.js'
 import { entryKey, validateInput, type CatalogueEntry, type EntryState, type Proposal } from '../../shared/metadata.js'
+import { invalidateCatalogueLinkIndex } from './linkSong.js'
 
 type Row = { entryId: number, artist: string, title: string, librarySongId: number | null, state: EntryState, data: string, attempts: number, nextAttempt: number, variants?: number }
 export class MetadataStore {
@@ -49,6 +50,7 @@ export class MetadataStore {
         variants += Number(this.sql.run('INSERT INTO catalogueSources(entryId,sourceKey,data) VALUES (?,?,?) ON CONFLICT DO NOTHING', [entryId, JSON.stringify([row.source, row.sourceTitle, row.provider]), JSON.stringify(row)]).changes)
       }
       this.sql.exec('COMMIT')
+      if (added) invalidateCatalogueLinkIndex()
     } catch (err) { this.sql.exec('ROLLBACK'); throw err }
     return { added, variants, rows: rows.length }
   }

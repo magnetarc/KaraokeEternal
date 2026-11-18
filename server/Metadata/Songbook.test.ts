@@ -5,6 +5,7 @@ import { MetadataStore } from './Store.js'
 import { Songbook, fullTextQuery } from './Songbook.js'
 import { emptyCategories } from '../../shared/catalog.js'
 import { linkCatalogueSong } from './linkSong.js'
+import MetaParser from '../Scanner/MetaParser/MetaParser.js'
 let db: DatabaseWrapper; let book: Songbook; let store: MetadataStore
 beforeEach(() => {
   db = new DatabaseWrapper(':memory:')
@@ -71,5 +72,26 @@ describe('full indexed songbook', () => {
     book.setStar(1, 1, false)
     expect(book.list({ favourites: true }, 1, null).total).toBe(0)
     expect(linkCatalogueSong('Ed Sheeran', 'Perfect', 2, db)).toBe(false)
+  })
+  it('links the real scanner article display variants and preserves version qualifiers', () => {
+    store.import([{ artist: 'The Rolling Stones', title: 'The Last Time' }, { artist: 'The Test Band', title: 'A New Song (Live)' }])
+    db.run("INSERT INTO artists(name,nameNorm) VALUES ('Rolling Stones, The','Rolling Stones'),('Test Band, The','Test Band')")
+    db.run("INSERT INTO songs(artistId,title,titleNorm) VALUES (1,'Last Time, The','Last Time'),(2,'New Song, A (Live)','New Song A Live')")
+    const parser = MetaParser()
+    const parsed = parser({ name: 'The Rolling Stones - The Last Time [SC Karaoke]' })
+    expect(linkCatalogueSong(parsed.artist, parsed.title, 1, db)).toBe(true)
+    expect(linkCatalogueSong('Test Band, The', 'New Song, A (Live)', 2, db)).toBe(true)
+    expect(linkCatalogueSong('Test Band, The', 'New Song, A (Remix)', 2, db)).toBe(false)
+  })
+  it('rejects ambiguous article aliases and refreshes the lookup after new imports', () => {
+    db.run("INSERT INTO artists(name,nameNorm) VALUES ('Example','Example')")
+    db.run("INSERT INTO songs(artistId,title,titleNorm) VALUES (1,'Song','Song')")
+    expect(linkCatalogueSong('Example, The', 'Song', 1, db)).toBe(false)
+    store.import([{ artist: 'The Example', title: 'Song' }])
+    expect(linkCatalogueSong('Example, The', 'Song', 1, db)).toBe(true)
+    db.run('UPDATE catalogueEntries SET librarySongId=NULL')
+    store.import([{ artist: 'Example', title: 'Song' }])
+    expect(linkCatalogueSong('Example, The', 'Song', 1, db)).toBe(false)
+    expect(linkCatalogueSong('Example', 'Song', 1, db)).toBe(true)
   })
 })

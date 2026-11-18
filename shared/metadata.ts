@@ -16,6 +16,13 @@ export type CatalogueEntry = CatalogueInput & {
 }
 export const identity = (value: string) => value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim()
 export const entryKey = (artist: string, title: string) => JSON.stringify([identity(artist), identity(title)])
+// The existing scanner moves leading English articles to the end, before a
+// version qualifier. Match those reversible display variants without removing
+// punctuation or version wording. Collisions still need explicit review.
+export const catalogueMatchKey = (artist: string, title: string) => {
+  const display = (value: string) => identity(value).replace(/^(?:a|an|the)\s+/, '').replace(/,\s*(?:a|an|the)(?=$|\s+[([{])/, '').trim()
+  return JSON.stringify([display(artist), display(title)])
+}
 
 export function decodeCatalogue (bytes: Uint8Array): { text: string, encoding: string } {
   try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), encoding: 'UTF-8' } } catch {

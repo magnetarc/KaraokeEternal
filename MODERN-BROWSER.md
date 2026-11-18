@@ -13,7 +13,7 @@ recognition, with a focused stronger-model audit/recognition pass. Styles and
 editorial popularity remain unverified suggestions. Model-only language, decade
 and voice allocation are withheld after the audit found version inference errors.
 Unknowns remain blank. Existing host decisions, including blanks, always win.
-Exact artist/title identities link staged entries and favourites when media scans.
+Exact artist/title identities and unique scanner article variants link staged entries and favourites when media scans.
 
 See [TEST-DEPLOYMENT.md](TEST-DEPLOYMENT.md) for metadata-only seed export/import,
 a separate Docker test project, read-only media mounting and deployment limits.
