@@ -25,7 +25,7 @@ await new Promise((resolve, reject) => {
   probe.once('error', () => reject(new Error('Port 8091 is already in use; use the existing preview or stop it first')))
   probe.listen(8091, '127.0.0.1', () => probe.close(resolve))
 })
-console.log('Isolated preview: http://127.0.0.1:8091/library')
+console.log('Isolated preview: http://127.0.0.1:8091/songbook')
 console.log('Demo accounts are listed in MODERN-BROWSER.md. Synthetic media only.')
 const child = spawn(process.execPath, [path.join(root, 'build/server/main.js')], {
   cwd: root, stdio: 'inherit',
