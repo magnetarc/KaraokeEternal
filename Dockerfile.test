@@ -12,6 +12,8 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY --from=build /app/assets ./assets
+COPY --from=build /app/LICENSE ./LICENSE
+COPY --from=build /app/docs/assets/fonts/OFL.txt ./licenses/Beon-OFL.txt
 COPY --from=build /app/scripts/catalogue-bundle.mjs ./scripts/catalogue-bundle.mjs
 RUN mkdir -p /config && chown node:node /config
 USER node

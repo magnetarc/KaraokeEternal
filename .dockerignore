@@ -6,5 +6,4 @@ qa-artifacts
 *.log
 *.sqlite3*
 *.zip
-docs
 __pycache__
