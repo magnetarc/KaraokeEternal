@@ -43,6 +43,13 @@ deployments. `diagnose-nas-access.sh` gathers diagnostics without changing the
 running service; an isolated startup probe uses a temporary copy of a prior
 stopped-config backup and removes its probe resources afterwards.
 
+The Compose helper selects override files using explicit function arguments,
+avoiding old BusyBox ash function-prefix assignments that can persist after
+validation. A missing requested override is an error, never a silent fallback.
+Post-restart checks inspect the initial application's groups in `/proc/1/status`.
+Validation stdout/stderr and the last health-check error are retained beside
+each stopped-config backup, in addition to server startup logs and state.
+
 This builds the image, imports the prepared metadata before the first server
 start, and launches the server. A fresh production database is marked as
 managed, with no test banner. Repeat imports preserve existing host decisions;

@@ -24,19 +24,27 @@ else
   done
   test -n "$COMPOSE_BIN" || { echo 'Docker is available, but its Compose command was not found. No changes made.' >&2; exit 1; }
 fi
-compose () {
-  if [ "$COMPOSE_MODE" = plugin ]; then
-    if [ -r "${NAS_COMPOSE_OVERRIDE:-compose.nas.yaml}" ]; then
-      docker compose -p karaoke-modern -f compose.yaml -f "${NAS_COMPOSE_OVERRIDE:-compose.nas.yaml}" "$@"
-    else
-      docker compose -p karaoke-modern -f compose.yaml "$@"
-    fi
+# File selection uses arguments, never function-prefix assignments: old BusyBox
+# ash can retain those assignments after a function returns.
+compose_with_override () {
+  if [ -n "$1" ]; then
+    test -r "$1" || { echo "Compose override is unavailable: $1" >&2; return 1; }
+    set -- -f compose.yaml -f "$@"
   else
-    if [ -r "${NAS_COMPOSE_OVERRIDE:-compose.nas.yaml}" ]; then
-      "$COMPOSE_BIN" -p karaoke-modern -f compose.yaml -f "${NAS_COMPOSE_OVERRIDE:-compose.nas.yaml}" "$@"
-    else
-      "$COMPOSE_BIN" -p karaoke-modern -f compose.yaml "$@"
-    fi
+    shift
+    set -- -f compose.yaml "$@"
+  fi
+  if [ "$COMPOSE_MODE" = plugin ]; then
+    docker compose -p karaoke-modern "$@"
+  else
+    "$COMPOSE_BIN" -p karaoke-modern "$@"
+  fi
+}
+compose () {
+  if [ -f compose.nas.yaml ]; then
+    compose_with_override compose.nas.yaml "$@"
+  else
+    compose_with_override '' "$@"
   fi
 }
 compose version

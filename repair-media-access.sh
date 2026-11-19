@@ -60,12 +60,25 @@ pending="compose.nas.yaml.pending.$$"
   printf '    user: "%s:%s"\n' "$app_uid" "$app_gid"
 } > "$pending"
 chown "$uid:$gid" "$pending"
-NAS_COMPOSE_OVERRIDE="$pending" compose config --quiet
+compose_with_override "$pending" config --quiet
 
 
 mkdir -p backups
 backup="$PWD/backups/media-access-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 mkdir -m 700 "$backup"
+chown "$uid:$gid" "$backup"
+# Keep stdout/stderr separately so JSON-returning checks stay machine-readable.
+checked () {
+  if "$@" > "$backup/last-check.stdout" 2> "$backup/last-check.stderr"; then
+    cat "$backup/last-check.stdout"
+    cat "$backup/last-check.stderr" >&2
+  else
+    check_code=$?
+    cat "$backup/last-check.stdout"
+    cat "$backup/last-check.stderr" >&2
+    return "$check_code"
+  fi
+}
 had_override=false
 if [ -f compose.nas.yaml ]; then
   cp -p compose.nas.yaml "$backup/compose.nas.yaml.previous"
@@ -81,6 +94,7 @@ rollback () {
     if [ -n "$failed" ]; then
       docker logs --tail 100 "$failed" > "$backup/failed-startup.log" 2>&1 || true
       docker inspect --format '{{json .State}}' "$failed" > "$backup/failed-state.json" 2>&1 || true
+      docker inspect --format 'User={{json .Config.User}} Groups={{json .HostConfig.GroupAdd}}' "$failed" > "$backup/failed-runtime.txt" 2>&1 || true
       chown "$uid:$gid" "$backup/failed-startup.log" "$backup/failed-state.json" || true
       echo "Startup diagnostics saved in $backup" >&2
     fi
@@ -111,16 +125,24 @@ mv "$pending" compose.nas.yaml
 echo "Config backup saved at $backup/config"
 
 if [ "$prepare_only" = false ]; then
-  compose up -d --no-build --force-recreate karaoke-modern
+  checked compose_with_override compose.nas.yaml up -d --no-build --force-recreate karaoke-modern
   container=$(docker ps -aq --filter label=com.docker.compose.project=karaoke-modern --filter label=com.docker.compose.service=karaoke-modern)
   attempt=0
-  until docker exec "$container" node -e "fetch('http://127.0.0.1:8080/api/instance',{signal:AbortSignal.timeout(3000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" >/dev/null 2>&1; do
+  until docker exec "$container" node -e "fetch('http://127.0.0.1:8080/api/instance',{signal:AbortSignal.timeout(3000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})" > "$backup/healthcheck.stdout" 2> "$backup/healthcheck.stderr"; do
     attempt=$((attempt + 1))
     test "$attempt" -lt 60 || { echo 'Application did not become ready.' >&2; exit 1; }
     sleep 1
   done
-  docker exec "$container" node -e "$probe require('node:fs').accessSync('/config',require('node:fs').constants.W_OK);"
-  result=$(docker exec "$container" node --input-type=module -e "import {DatabaseSync} from 'node:sqlite'; const db=new DatabaseSync('/config/database.sqlite3',{readOnly:true}); const check=db.prepare('PRAGMA quick_check').get().quick_check; if(check!=='ok')throw Error(check); console.log(JSON.stringify({state:'ready',checkedAt:new Date().toISOString(),uid:process.getuid(),gid:process.getgid(),groups:process.getgroups(),database:check,users:db.prepare('SELECT COUNT(*) AS n FROM users').get().n,catalogueEntries:db.prepare('SELECT COUNT(*) AS n FROM catalogueEntries').get().n}));db.close();")
+  checked docker inspect --format 'Applied user={{json .Config.User}} groups={{json .HostConfig.GroupAdd}}' "$container"
+  # Inspect the initial application process, rather than assuming an auxiliary
+  # docker-exec process has identical supplementary groups on every engine.
+  checked docker exec "$container" node -e "const fs=require('node:fs'); const s=fs.readFileSync('/proc/1/status','utf8'); const actual=s.match(/^Groups:\\s*(.*)$/m)[1].trim().split(/\\s+/).map(Number);const expected=process.argv.slice(1).map(Number).filter(x=>x!==0);console.log(JSON.stringify({appGroups:actual,checkGroups:process.getgroups(),expectedGroups:expected}));if(expected.some(x=>!actual.includes(x)))throw Error('NAS groups were not applied to the application process')" $groups
+  # Repeat the proven access check with explicit groups, avoiding exec-specific
+  # group handling. No live database content is changed by this filesystem probe.
+  set -- docker run --rm --user "$app_uid:$app_gid"
+  for group in $groups; do if [ "$group" != 0 ]; then set -- "$@" --group-add "$group"; fi; done
+  checked "$@" --mount "type=volume,source=$volume,target=/config" --mount "type=bind,source=$media,target=/media,readonly" --entrypoint node "$image" -e "$probe"
+  result=$(checked docker exec "$container" node --input-type=module -e "import {DatabaseSync} from 'node:sqlite'; const db=new DatabaseSync('/config/database.sqlite3',{readOnly:true}); const check=db.prepare('PRAGMA quick_check').get().quick_check; if(check!=='ok')throw Error(check); console.log(JSON.stringify({state:'ready',checkedAt:new Date().toISOString(),uid:process.getuid(),gid:process.getgid(),groups:(await import('node:fs')).readFileSync('/proc/1/status','utf8').match(/^Groups:\\s*(.*)$/m)[1].trim().split(/\\s+/).map(Number),checkProcessGroups:process.getgroups(),database:check,users:db.prepare('SELECT COUNT(*) AS n FROM users').get().n,catalogueEntries:db.prepare('SELECT COUNT(*) AS n FROM catalogueEntries').get().n}));db.close();")
   printf '%s\n' "$result"
   printf '%s\n' "$result" > diagnostics/media-access-result.json
   chown "$uid:$gid" diagnostics/media-access-result.json

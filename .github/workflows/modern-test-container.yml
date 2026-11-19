@@ -15,6 +15,10 @@ jobs:
           persist-credentials: false
       - name: Build production image
         run: docker build -f Dockerfile -t karaoke-modern:ci .
+      - name: Check override selection on Synology-style BusyBox ash
+        run: |
+          sh scripts/test-nas-compose.sh
+          docker run --rm --mount type=bind,source="$PWD",target=/work,readonly -w /work busybox:1.28 sh scripts/test-nas-compose.sh
       - name: Check NAS installer shell syntax and production Compose
         run: |
           sh -n install-nas.sh
