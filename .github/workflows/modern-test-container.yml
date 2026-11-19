@@ -18,8 +18,12 @@ jobs:
       - name: Check NAS installer shell syntax and production Compose
         run: |
           sh -n install-nas.sh
+          sh -n repair-media-access.sh
+          sh -n scripts/nas-compose.sh
           docker compose -p karaoke-modern -f compose.yaml config --quiet
       - name: Check production metadata import and HTTP startup
         run: node scripts/docker-smoke.mjs karaoke-modern:ci production
       - name: Check isolated QA metadata import and HTTP startup
         run: node scripts/docker-smoke.mjs karaoke-modern:ci
+      - name: Reproduce private media permissions and verify NAS repair
+        run: node scripts/nas-access-smoke.mjs karaoke-modern:ci

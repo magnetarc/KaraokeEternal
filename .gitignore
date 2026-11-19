@@ -20,3 +20,5 @@ qa-artifacts/
 .playwright-cli
 __pycache__/
 *.pyc
+compose.nas.yaml*
+backups/

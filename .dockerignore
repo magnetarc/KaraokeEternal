@@ -8,3 +8,5 @@ qa-artifacts
 *.zip
 seed
 __pycache__
+compose.nas.yaml*
+backups
