@@ -1,4 +1,4 @@
-// Disposable Linux CI only: reproduce private NAS media, then run the real repair.
+// Disposable Linux CI only: reproduce group-protected NAS media, then run the repair.
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, chmodSync, statSync } from 'node:fs'
 import path from 'node:path'
@@ -29,8 +29,8 @@ try {
   docker('tag', process.argv[2] ?? 'karaoke-modern:ci', 'karaoke-modern:local')
   command('sudo', ['mkdir', '-p', media])
   command('sudo', ['chown', `${uid}:${gid}`, media])
-  chmodSync(media, 0o700)
-  for (const name of ['OTHER', 'RIGMAR', 'SUNFLY']) mkdirSync(path.join(media, name), { mode: 0o700 })
+  chmodSync(media, 0o750)
+  for (const name of ['OTHER', 'RIGMAR', 'SUNFLY']) mkdirSync(path.join(media, name), { mode: 0o750 })
   const modeBefore = statSync(media).mode
   mkdirSync(path.join(root, 'seed'), { recursive: true })
   const entries = ['Synthetic first', 'Synthetic second'].map(title => ({ artist: 'Fictional artist', title, data: {}, sources: [], suggestion: null }))
@@ -45,12 +45,15 @@ try {
   assert.match(denied.stderr, /EACCES/)
   const setup = await fetch(base + '/api/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'cihost', name: 'Synthetic host', newPassword: password, newPasswordConfirm: password }) })
   assert.equal(setup.status, 200, await setup.text())
+  const ownerBefore = docker('exec', container, 'stat', '-c', '%u:%g', '/config/database.sqlite3')
   console.log('PASS: default image reproduces NAS EACCES; existing host account created before repair')
   const repair = command('sudo', ['sh', 'repair-media-access.sh'])
   console.log(repair.stdout)
   await ready()
   container = compose('ps', '-q', 'karaoke-modern')
-  assert.equal(docker('exec', container, 'id', '-u'), String(uid))
+  assert.equal(docker('exec', container, 'id', '-u'), '1000')
+  assert.ok(docker('exec', container, 'id', '-G').split(' ').includes(String(gid)))
+  assert.equal(docker('exec', container, 'stat', '-c', '%u:%g', '/config/database.sqlite3'), ownerBefore)
   docker('exec', container, 'node', '-e', "require('node:fs').readdirSync('/media/RIGMAR')")
   const write = command('docker', ['exec', container, 'node', '-e', "require('node:fs').writeFileSync('/media/should-not-write','x')"], false)
   assert.notEqual(write.status, 0)
@@ -60,7 +63,7 @@ try {
   assert.equal(login.status, 200, await login.text())
   const counts = JSON.parse(docker('exec', container, 'node', '--input-type=module', '-e', "import{DatabaseSync}from'node:sqlite';const d=new DatabaseSync('/config/database.sqlite3',{readOnly:true});console.log(JSON.stringify({users:d.prepare('SELECT COUNT(*) AS n FROM users').get().n,entries:d.prepare('SELECT COUNT(*) AS n FROM catalogueEntries').get().n}));d.close()"))
   assert.deepEqual(counts, { users: 1, entries: 2 })
-  console.log('PASS: real repair reads private media as the NAS identity, keeps read-only media/modes, and preserves host login/catalogue')
+  console.log('PASS: repair adds NAS groups while retaining application UID/database ownership, read-only media/modes, and host login/catalogue')
 } finally {
   command('sudo', ['docker', 'compose', '-p', 'karaoke-modern', '-f', 'compose.yaml', '-f', 'compose.nas.yaml', 'down'], false)
   command('docker', ['volume', 'rm', volume], false)

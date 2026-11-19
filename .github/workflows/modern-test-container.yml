@@ -19,6 +19,7 @@ jobs:
         run: |
           sh -n install-nas.sh
           sh -n repair-media-access.sh
+          sh -n diagnose-nas-access.sh
           sh -n scripts/nas-compose.sh
           docker compose -p karaoke-modern -f compose.yaml config --quiet
       - name: Check production metadata import and HTTP startup

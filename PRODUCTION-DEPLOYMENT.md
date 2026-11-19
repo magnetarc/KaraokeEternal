@@ -22,21 +22,26 @@ The command search path is changed only within this installer. An SSH warning
 about the missing Conor home directory does not prevent this absolute-path
 installation; enabling home folders is unnecessary for this task.
 
-The installer detects the SSH/sudo NAS user and prepares a persistent
-`compose.nas.yaml` with that user's numeric UID/GID and existing groups. This
-lets the application read DSM-protected media while remaining a non-root
-process. Only the new config volume's ownership is adjusted; media permissions
-and the read-only media mount are retained. Host-specific settings and config
-backups are excluded from Git and Docker image builds.
+The installer detects the SSH/sudo NAS user's existing groups and prepares a
+persistent `compose.nas.yaml` adding those groups to the current application
+user. The application UID/GID and config ownership are retained. This grants
+access to DSM-protected media while keeping the application non-root. Media
+permissions and the read-only mount are retained. Host-specific settings,
+diagnostics and config backups are excluded from Git and image builds.
 
 If an earlier installation shows `EACCES: permission denied, scandir '/media'`,
 run `sudo sh /volume1/docker/karaoke-modern/repair-media-access.sh`. It verifies
 the NAS identity's read access first, stops only the new application, backs up
-its config under `backups/media-access-*/config`, adjusts that config volume's
-ownership and recreates this service using its existing image. It does not
+its config under `backups/media-access-*/config`, adds NAS groups to the existing
+application identity and recreates this service using its existing image. It does not
 rebuild or import metadata. Existing accounts/categories/queues remain in the
 same volume. A failure after stopping attempts to restore the previous
-runtime identity and service. Keep `compose.nas.yaml` for future deployments.
+runtime settings and service, saving startup logs first. Readiness uses the
+container ID even while it is restarting. Success/failure status is saved in
+`diagnostics/media-access-result.json`. Keep `compose.nas.yaml` for future
+deployments. `diagnose-nas-access.sh` gathers diagnostics without changing the
+running service; an isolated startup probe uses a temporary copy of a prior
+stopped-config backup and removes its probe resources afterwards.
 
 This builds the image, imports the prepared metadata before the first server
 start, and launches the server. A fresh production database is marked as
