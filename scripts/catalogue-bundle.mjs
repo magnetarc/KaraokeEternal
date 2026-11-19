@@ -4,9 +4,9 @@ import path from 'node:path'
 import { parseArgs } from 'node:util'
 import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
-const { values, positionals } = parseArgs({ allowPositionals: true, options: { database: { type: 'string' }, bundle: { type: 'string' }, 'isolated-test': { type: 'boolean' } } })
+const { values, positionals } = parseArgs({ allowPositionals: true, options: { database: { type: 'string' }, bundle: { type: 'string' }, 'isolated-test': { type: 'boolean' }, 'fresh-instance': { type: 'boolean' } } })
 const [command] = positionals
-if (!['export', 'import'].includes(command) || !values.database || !values.bundle) throw new Error('Usage: node scripts/catalogue-bundle.mjs export|import --database ABSOLUTE_PATH --bundle ABSOLUTE_PATH [--isolated-test]')
+if (!['export', 'import'].includes(command) || !values.database || !values.bundle) throw new Error('Usage: node scripts/catalogue-bundle.mjs export|import --database ABSOLUTE_PATH --bundle ABSOLUTE_PATH [--fresh-instance|--isolated-test]')
 if (!path.isAbsolute(values.database) || !path.isAbsolute(values.bundle)) throw new Error('Use absolute paths')
 if (command === 'export') {
   const db = new DatabaseSync(values.database, { readOnly: true })
@@ -32,7 +32,9 @@ if (command === 'export') {
     db.exec('COMMIT')
   } finally { db.close() }
 } else {
-  if (!values['isolated-test']) throw new Error('Import requires --isolated-test and a fresh or marked test database')
+  if (!!values['isolated-test'] === !!values['fresh-instance']) throw new Error('Import requires exactly one of --fresh-instance or --isolated-test')
+  const marker = values['isolated-test'] ? 'modernTestInstance' : 'modernManagedInstance'
+  const otherMarker = values['isolated-test'] ? 'modernManagedInstance' : 'modernTestInstance'
   const raw = readFileSync(values.bundle)
   if (raw.length > 300 * 1024 * 1024) throw new Error('Metadata bundle exceeds 300 MB')
   const bundle = JSON.parse(raw)
@@ -55,13 +57,13 @@ if (command === 'export') {
   const db = new DatabaseWrapper(values.database)
   try {
     const hasPrefs = db.get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='prefs'")
-    if (hasPrefs && db.get("SELECT data FROM prefs WHERE key='modernTestInstance'")?.data !== 'true') throw new Error('Refusing an existing database without the isolated test marker')
+    if (hasPrefs && (db.get('SELECT data FROM prefs WHERE key=?', [marker])?.data !== 'true' || db.get('SELECT data FROM prefs WHERE key=?', [otherMarker])?.data === 'true')) throw new Error('Refusing an existing database without the matching instance marker')
     if (!hasPrefs && db.get("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table'").n !== 0) throw new Error('Refusing an unknown existing database')
     db.migrate({ migrationsPath: path.resolve(import.meta.dirname, '../build/server/lib/schemas') })
     db.exec('PRAGMA busy_timeout=10000; BEGIN IMMEDIATE')
     let added = 0; let suggestions = 0
     try {
-      db.run("INSERT OR IGNORE INTO prefs(key,data) VALUES ('modernTestInstance','true')")
+      db.run('INSERT OR IGNORE INTO prefs(key,data) VALUES (?,?)', [marker, 'true'])
       const links = new Map(db.all('SELECT songs.songId,artists.name,songs.title FROM songs JOIN artists USING(artistId)').map(r => [entryKey(r.name, r.title), r.songId]))
       for (const { input, approved, featured, suggestion, sources } of entries) {
         const key = entryKey(input.artist, input.title)

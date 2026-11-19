@@ -9,8 +9,8 @@ const directory = path.join(source, '.test-instance', 'bundle-validation-' + Dat
 mkdirSync(directory, { recursive: true })
 const database = path.join(directory, 'database.sqlite3')
 const cli = path.join(source, 'scripts/catalogue-bundle.mjs')
-function run (target = database) {
-  return spawnSync(process.execPath, [cli, 'import', '--database', target, '--bundle', bundle, '--isolated-test'], { encoding: 'utf8', cwd: source })
+function run (target = database, mode = '--isolated-test') {
+  return spawnSync(process.execPath, [cli, 'import', '--database', target, '--bundle', bundle, mode], { encoding: 'utf8', cwd: source })
 }
 const expected = JSON.parse(readFileSync(bundle, 'utf8'))
 const checks = []
@@ -48,6 +48,27 @@ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sqlite_master WHERE type=\'ta
 assert.equal(db.prepare('SELECT data FROM prefs').get().data, 'keep')
 db.close()
 checks.push('an existing unmarked database is refused before migrations or metadata writes')
+const production = path.join(directory, 'production.sqlite3')
+const productionFirst = run(production, '--fresh-instance')
+assert.equal(productionFirst.status, 0, productionFirst.stderr)
+assert.equal(JSON.parse(productionFirst.stdout.trim()).added, expected.entries.length)
+db = new DatabaseSync(production)
+assert.equal(db.prepare("SELECT data FROM prefs WHERE key='modernManagedInstance'").get().data, 'true')
+assert.equal(db.prepare("SELECT data FROM prefs WHERE key='modernTestInstance'").get(), undefined)
+assert.equal(db.prepare('PRAGMA quick_check').get().quick_check, 'ok')
+assert.equal(db.prepare('PRAGMA foreign_key_check').all().length, 0)
+db.close()
+checks.push('production imports the full catalogue with a persistent production marker and no test banner marker')
+const productionAgain = run(production, '--fresh-instance')
+assert.equal(productionAgain.status, 0, productionAgain.stderr)
+assert.equal(JSON.parse(productionAgain.stdout.trim()).added, 0)
+checks.push('repeat production import is idempotent')
+for (const [target, mode] of [[production, '--isolated-test'], [database, '--fresh-instance'], [refusal, '--fresh-instance']]) {
+  const result = run(target, mode)
+  assert.notEqual(result.status, 0)
+  assert.match(result.stderr, /Refusing an existing database/)
+}
+checks.push('production and QA databases cannot be cross-imported, and an unmarked production database is refused')
 const report = { bundle, entries: expected.entries.length, suggestions: expected.entries.filter(e => e.suggestion).length, checks, database, checkedAt: new Date().toISOString() }
 mkdirSync(path.join(source, 'qa-artifacts'), { recursive: true })
 writeFileSync(path.join(source, 'qa-artifacts/bundle-checks.json'), JSON.stringify(report, null, 2))

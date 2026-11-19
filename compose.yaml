@@ -1,0 +1,22 @@
+name: karaoke-modern
+services:
+  karaoke-modern:
+    image: karaoke-modern:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8092:8080"
+    volumes:
+      - karaoke-modern-config:/config
+      - "/volume1/Media/10 - KARAOKE:/media:ro"
+    restart: unless-stopped
+  import-metadata:
+    image: karaoke-modern:local
+    profiles: ["import"]
+    volumes:
+      - karaoke-modern-config:/config
+      - ./seed:/seed:ro
+    command: ["node", "scripts/catalogue-bundle.mjs", "import", "--database", "/config/database.sqlite3", "--bundle", "/seed/catalogue-metadata.json", "--fresh-instance"]
+volumes:
+  karaoke-modern-config:
