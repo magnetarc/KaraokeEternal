@@ -21,6 +21,8 @@ export interface ParsedSongMeta {
 }
 
 export interface QueueItem {
+  selectedMediaId?: number | null
+  versionLabel?: string
   queueId: number
   songId: number
   userId: number

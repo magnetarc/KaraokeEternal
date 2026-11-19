@@ -1,3 +1,4 @@
+.version { font-size:12px; color:var(--color-gray-5); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .container {
   --image-width: 104px;
   --queue-item-btn-size: 48px;

@@ -1,4 +1,7 @@
 .browser { --accent:#ffb978; --ink:#f2f3f6; --muted:#a5acbd; color:var(--ink); background:#10121c; overflow:auto; width:100%; font-family:Inter,system-ui,sans-serif; }
+.versions { color:var(--accent); background:#302637; border:1px solid #65536f; border-radius:8px; min-height:44px; padding:8px 12px; font-size:14px; white-space:nowrap; }
+.versions:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+@media(max-width:480px) { .versions { order:2; } .song .add { order:3; } }
 .shell { max-width:1360px; margin:auto; padding:0 36px; }
 .topline { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:30px; font-size:13px; }
 .topline a { color:var(--muted); font-weight:500; }

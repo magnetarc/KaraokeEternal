@@ -4,6 +4,7 @@ import { ensureState } from 'redux-optimistic-ui'
 import HttpApi from 'lib/HttpApi'
 import { useAppDispatch, useAppSelector } from 'store/hooks'
 import { queueSong } from 'routes/Queue/modules/queue'
+import SongVersions, { type VersionSong } from '../components/SongVersions/SongVersions'
 import { toggleSongStarred } from 'store/modules/userStars'
 import getSongsStatus from '../selectors/getSongsStatus'
 import { songbookDefaults, type SongbookFilters, type SongbookListing, type SongbookOptions, type SongbookEntry } from 'shared/songbook'
@@ -49,6 +50,8 @@ export default function SongbookView () {
   const { headerHeight, footerHeight, innerHeight } = useAppSelector(s => s.ui)
   const songStatus = useAppSelector(getSongsStatus)
   const linkedStars = useAppSelector(s => ensureState(s.userStars).starredSongs)
+  const librarySongs = useAppSelector(s => s.songs.entities)
+  const [versionSong, setVersionSong] = useState<VersionSong | null>(null)
   const [filters, setFilters] = useState<SongbookFilters>(songbookDefaults)
   const [options, setOptions] = useState(emptyOptions)
   const [result, setResult] = useState<SongbookListing | null>(null)
@@ -118,6 +121,7 @@ export default function SongbookView () {
           return <article key={song.entryId} className={styles.song} aria-label={`${song.title} by ${song.artist}`}>
             <div className={styles.songNumber}>{filters.offset + index + 1}</div>
             <div className={styles.songInfo}><h3>{song.title}</h3><p>{song.artist}</p><div className={styles.tags}>{[...(song.categories.genres ?? [song.categories.genre]), song.categories.decade, song.categories.language, ...song.categories.collections].filter(Boolean).map((tag, i) => <span key={i}>{tag}</span>)}</div><small className={bookStyles.basis}>{song.categorySource === 'suggested' ? song.styleBasis.startsWith('artist_') ? 'Artist style · unreviewed' : 'AI suggestion · unreviewed' : song.categorySource === 'reviewed' || song.categorySource === 'library' ? 'Host categories' : 'Details not categorised'}</small>{user.isAdmin && <><button className={styles.edit} onClick={() => setEditing(song)}>Edit song details</button><button disabled={busy === song.entryId} className={styles.edit} onClick={() => promote(song)}>{song.featured ? '★ Host pick · remove promotion' : 'Promote in Popular first'}</button></>}</div>
+            {song.available && song.librarySongId && (librarySongs[song.librarySongId]?.numMedia ?? 0) > 1 && <button className={styles.versions} aria-label={`Choose version of ${song.title}`} onClick={() => setVersionSong({ songId: song.librarySongId, title: song.title, artist: song.artist })}>Versions ({librarySongs[song.librarySongId].numMedia})</button>}
             <button className={styles.star} aria-pressed={starred} aria-label={`${starred ? 'Unfavourite' : 'Favourite'} ${song.title}`} disabled={busy === song.entryId} onClick={() => star(song)}>{starred ? '★' : '☆'}</button>
             <button className={styles.add} disabled={!song.available || !song.librarySongId || !user.roomId || queued} onClick={() => { dispatch(queueSong(song.librarySongId)); setMessage(`${song.title} added to your queue`) }}>{!song.available ? 'Media not scanned' : queued ? '✓ Queued' : '+ Add to queue'}</button>
           </article>
@@ -127,5 +131,6 @@ export default function SongbookView () {
       {pages > 1 && <nav className={styles.pagination} aria-label='Songbook pages'><button disabled={loading || page === 1} onClick={() => { setFilters(f => ({ ...f, offset: Math.max(0, f.offset - 40) })); container.current?.scrollTo(0, 0) }}>← Previous</button><span>Page {page.toLocaleString()} of {pages.toLocaleString()}</span><button disabled={loading || page >= pages} onClick={() => { setFilters(f => ({ ...f, offset: f.offset + 40 })); container.current?.scrollTo(0, 0) }}>Next →</button></nav>}
     </div>
     {editing && <EditDetails song={editing} close={() => setEditing(null)} saved={() => { refresh(v => v + 1); api.get<SongbookOptions>('/options').then(setOptions).catch(err => setError(err.message)) }} />}
+    {versionSong && <SongVersions key={versionSong.songId} song={versionSong} canQueue={!!user.roomId && !songStatus.upcoming.has(versionSong.songId) && songStatus.current !== versionSong.songId} unavailableReason={!user.roomId ? 'Join a room to add this song to the queue.' : 'This song is already queued.'} onClose={() => setVersionSong(null)} onQueue={mediaId => { dispatch(queueSong(versionSong.songId, mediaId)); setMessage(`Adding ${versionSong.title} with your selected version`); setVersionSong(null) }} />}
   </main>
 }

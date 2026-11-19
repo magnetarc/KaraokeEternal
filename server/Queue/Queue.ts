@@ -3,6 +3,7 @@ import { db } from '../lib/Database.js'
 import getLogger from '../lib/Log.js'
 import sql from 'sqlate'
 import { QueueItem } from '../../shared/types.js'
+import { versionDisplay } from '../../shared/songVersions.js'
 
 const log = getLogger('Queue')
 
@@ -24,17 +25,24 @@ interface QueueEntityBuilding {
   isPreferred?: number | null
   mediaType?: 'cdg' | 'mp4'
   isVideoKeyingEnabled?: boolean
+  selectedMediaId: number | null
+  versionLabel?: string
 }
 
 class Queue {
   /**
    * Add a songId to a room's queue
    */
-  static add ({ roomId, songId, userId }: { roomId: number, songId: number, userId: number }): void {
+  static add ({ roomId, songId, userId, mediaId }: { roomId: number, songId: number, userId: number, mediaId?: number }): void {
+    if (!Number.isSafeInteger(songId) || songId <= 0) throw new Error('Invalid song identifier')
+    if (mediaId !== undefined && (!Number.isSafeInteger(mediaId) || mediaId <= 0 || !db.get('SELECT 1 FROM media WHERE mediaId=? AND songId=?', [mediaId, songId]))) {
+      throw new Error('This version is no longer available for this song. Refresh and choose again.')
+    }
     const fields = new Map()
     fields.set('roomId', roomId)
     fields.set('songId', songId)
     fields.set('userId', userId)
+    if (mediaId !== undefined) fields.set('selectedMediaId', mediaId)
     fields.set('prevQueueId', sql`(
       SELECT queueId
       FROM queue
@@ -71,7 +79,7 @@ class Queue {
     // removed (e.g. mid-scan) still anchor the prevQueueId chain; they're
     // kept out of the payload below
     const query = sql`
-      SELECT queueId, songId, queue.userId, prevQueueId,
+      SELECT queueId, queue.songId, queue.userId, prevQueueId, queue.selectedMediaId,
         media.mediaId, media.relPath, media.pitch, userPitches.pitch AS userPitch,
         media.rgTrackGain, media.rgTrackPeak,
         users.name AS userDisplayName, users.dateUpdated AS userDateUpdated,
@@ -84,7 +92,8 @@ class Queue {
         MAX(isPreferred) AS isPreferred
       FROM queue
         INNER JOIN users USING(userId)
-        LEFT JOIN media USING(songId)
+        LEFT JOIN media ON media.songId = queue.songId
+          AND (queue.selectedMediaId IS NULL OR media.mediaId = queue.selectedMediaId)
         LEFT JOIN paths USING(pathId)
         LEFT JOIN userPitches ON userPitches.mediaId = media.mediaId AND userPitches.userId = queue.userId
       WHERE roomId = ${roomId}
@@ -107,6 +116,7 @@ class Queue {
       pathId: number | null
       pathData: string | null
       isPreferred: number | null
+      selectedMediaId: number | null
     }>(String(query), query.parameters)
 
     for (const row of rows) {
@@ -136,6 +146,7 @@ class Queue {
       entities[row.queueId] = row
       entities[row.queueId].mediaType = this.getType(relPath)
       entities[row.queueId].isVideoKeyingEnabled = !!pathPrefs?.isVideoKeyingEnabled
+      if (row.selectedMediaId !== null) entities[row.queueId].versionLabel = versionDisplay(relPath).label
 
       // don't send over the wire
       delete entities[row.queueId].relPath

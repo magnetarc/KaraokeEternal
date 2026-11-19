@@ -72,3 +72,27 @@ sudo docker compose stop karaoke-modern
 
 Keep its config volume. The old service/config remains available for rollback.
 Local development and automated QA retain their separate test commands/files.
+
+## Updating the existing installation
+
+The version-selection update supplies tested prebuilt images for AMD64 and
+ARM64 under `release-images/<source-commit>/<architecture>`. Source commit,
+SHA256 and image ID are checked before use. Run the Windows `Update on NAS.cmd`
+launcher and enter the NAS administrator password privately, or use:
+
+```sh
+sudo sh /volume1/docker/karaoke-modern/update-nas.sh
+```
+
+Keep the window open. The updater waits while scanner workers are active,
+then loads the image, briefly stops only Karaoke Modern on 8092, backs up the
+closed config volume and recreates it with the existing NAS groups. It does
+not rebuild, reimport metadata or change media permissions. Database readiness
+and song/version counts are saved to `diagnostics/update-result.json`. On
+startup failure it attempts to restore the prior image and saves startup logs.
+
+The library shows separate song and backing-track totals. Songs with multiple
+scanned tracks have a **Versions (n)** button on desktop and phone. Choose a
+filename, format and duration before adding it; that choice stays with the
+queue entry. The regular Add button retains the host's preferred version.
+Metadata source rows are not counted as playable versions until scanned.

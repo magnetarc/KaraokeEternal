@@ -1,0 +1,25 @@
+.dialog { color:#f2f3f6; background:#1b1d2b; border:1px solid #65536f; border-radius:16px; padding:24px; width:min(660px,calc(100% - 32px)); max-height:88vh; overflow:auto; font:16px/1.5 Inter,system-ui,sans-serif; }
+.dialog::backdrop { background:#080914cc; backdrop-filter:blur(5px); }
+.header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.header > div { min-width:0; }
+.header h2 { font-size:26px; line-height:1.2; margin:6px 0; overflow-wrap:anywhere; }
+.header p { margin:0; color:#c6bfcd; }
+.header .eyebrow { font-size:12px; letter-spacing:1px; color:#ffb978; }
+.dialog button { font:inherit; cursor:pointer; color:inherit; border:1px solid #65536f; background:#302637; border-radius:8px; padding:10px 14px; min-height:44px; }
+.dialog button:disabled { opacity:.45; cursor:default; }
+.dialog button:focus-visible,.version:focus-within { outline:3px solid #ffb978; outline-offset:3px; }
+.dialog .close { min-width:44px; padding:2px; font-size:28px; background:transparent; }
+.list { border:0; padding:0; margin:20px 0; }
+.list legend { font-size:14px; color:#b5adbf; padding:0 0 10px; }
+.dialog .version { display:flex; flex-direction:row; align-items:flex-start; gap:12px; padding:16px; margin-bottom:10px; border:1px solid #494555; border-radius:10px; cursor:pointer; }
+.version.selected { background:#362a30; border-color:#ffb978; }
+.version input { width:20px; height:20px; flex-shrink:0; margin:3px 0; accent-color:#ffb978; }
+.info { min-width:0; }
+.info strong { display:block; font-size:16px; overflow-wrap:anywhere; }
+.info small { display:block; color:#a5acbd; font-size:13px; overflow-wrap:anywhere; margin-top:6px; }
+.details { display:flex; flex-wrap:wrap; gap:6px 12px; color:#c6bfcd; font-size:14px; margin-top:6px; }
+.preferred { color:#ffcf9f; font-weight:600; }
+.notice,.error { border-left:2px solid #ffb978; padding:10px 14px; background:#252331; }
+.actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:20px; }
+.dialog .primary { color:#241b21; background:#ffb978; border-color:#ffb978; font-weight:600; }
+@media(max-width:480px) { .dialog { padding:18px; width:calc(100% - 24px); } .header h2 { font-size:23px; } .version { padding:12px; } .actions { flex-direction:column-reverse; } .actions button { width:100%; } }

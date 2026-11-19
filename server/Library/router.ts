@@ -3,10 +3,21 @@ import Media from '../Media/Media.js'
 import Categories from './Categories.js'
 import Library from './Library.js'
 import Prefs from '../Prefs/Prefs.js'
+import { songVersions } from './songVersions.js'
 import { LIBRARY_PUSH } from '../../shared/actionTypes.js'
 const router = new KoaRouter({ prefix: '/api' })
 
 router.get('/instance', (ctx) => { ctx.body = { isTest: Prefs.get().modernTestInstance === true } })
+
+router.get('/song/:songId/versions', (ctx) => {
+  if (ctx.user.userId == null) ctx.throw(403, 'Sign in to choose a version')
+  const songId = Number(ctx.params.songId)
+  if (!Number.isSafeInteger(songId) || songId <= 0) ctx.throw(400, 'Invalid song identifier')
+  const versions = songVersions(songId)
+  if (!versions.length) ctx.throw(404, 'No playable versions are currently available')
+  // No absolute paths, media-folder settings, pitch or host-only file details.
+  ctx.body = { versions }
+})
 
 router.put('/song/:songId/categories', async (ctx) => {
   if (!ctx.user.isAdmin) ctx.throw(403, 'Only the host can edit categories')

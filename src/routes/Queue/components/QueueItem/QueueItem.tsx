@@ -17,6 +17,8 @@ import styles from './QueueItem.css'
 const LONG_PRESS_THRESHOLD_MS = 700
 
 interface QueueItemProps {
+  versionLabel?: string
+  selectedMediaId?: number | null
   artist: string
   errorMessage: string
   isCurrent: boolean
@@ -46,6 +48,8 @@ interface QueueItemProps {
 }
 
 const QueueItem = ({
+  versionLabel,
+  selectedMediaId,
   artist,
   errorMessage,
   isCurrent,
@@ -87,7 +91,7 @@ const QueueItem = ({
     setExpanded(false)
   }
   const handleRequeueClick = () => {
-    dispatch(queueSong(songId))
+    dispatch(queueSong(songId, selectedMediaId ?? undefined))
     setExpanded(false)
   }
   const handleSkipClick = () => {
@@ -161,6 +165,7 @@ const QueueItem = ({
         <div className={clsx(styles.primary, isPlayed && styles.greyed)} translate='no'>
           <div className={styles.innerPrimary}>
             <div className={styles.title}>{title}</div>
+            {versionLabel && <div className={styles.version} title={versionLabel}>Version: {versionLabel}</div>}
             <div className={styles.artist}>{artist}</div>
           </div>
           <div className={clsx(styles.user, isOwner && styles.isOwner)}>

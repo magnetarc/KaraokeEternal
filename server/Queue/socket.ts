@@ -7,22 +7,17 @@ import { QUEUE_ADD, QUEUE_MOVE, QUEUE_REMOVE, QUEUE_PUSH } from '../../shared/ac
 // ------------------------------------
 const ACTION_HANDLERS = {
   [QUEUE_ADD]: async (sock, { payload }, acknowledge) => {
-    const { songId } = payload
+    const { songId, mediaId } = payload
 
     try {
       await Rooms.validate(sock.user.roomId, null, { validatePassword: false })
+      Queue.add({ roomId: sock.user.roomId, songId, userId: sock.user.userId, ...(mediaId !== undefined ? { mediaId } : {}) })
     } catch (err) {
       return acknowledge({
         type: QUEUE_ADD + '_ERROR',
         error: err.message,
       })
     }
-
-    Queue.add({
-      roomId: sock.user.roomId,
-      songId,
-      userId: sock.user.userId,
-    })
 
     // success
     acknowledge({ type: QUEUE_ADD + '_SUCCESS' })
