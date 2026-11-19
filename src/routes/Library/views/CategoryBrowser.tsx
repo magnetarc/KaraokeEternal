@@ -1,7 +1,9 @@
-import React, { useId, useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import Icon from 'components/Icon/Icon'
 import type { SongbookOptions, SongbookFilters } from 'shared/songbook'
 import styles from './CategoryBrowser.css'
+import { useAppSelector } from 'store/hooks'
+import { categoryArtwork, readArtworkTheme, type ArtworkTheme } from './categoryArtwork'
 
 export type CategoryMode = 'cards' | 'search'
 type CategoryKey = keyof SongbookOptions
@@ -84,6 +86,19 @@ function CategoryIcon ({ name }: { name: IconName }) {
 
 export default function CategoryBrowser ({ options, filters, mode, onModeChange, onChange, onResults, onSearch, resultsReady }: Props) {
   const id = useId()
+  const userId = useAppSelector(state => state.user.userId)
+  const preferenceKey = `karaoke.categoryArtwork.v1.${userId}`
+  const [artworkTheme, setArtworkTheme] = useState<ArtworkTheme>(() => readArtworkTheme(preferenceKey))
+  useEffect(() => {
+    setArtworkTheme(readArtworkTheme(preferenceKey))
+    const sync = (event: StorageEvent) => { if (event.key === preferenceKey || event.key === null) setArtworkTheme(readArtworkTheme(preferenceKey)) }
+    window.addEventListener('storage', sync)
+    return () => window.removeEventListener('storage', sync)
+  }, [preferenceKey])
+  const changeArtwork = (theme: ArtworkTheme) => {
+    setArtworkTheme(theme)
+    try { localStorage.setItem(preferenceKey, theme) } catch { /* The choice still works when browser storage is unavailable. */ }
+  }
   const [group, setGroup] = useState<CategoryKey>('genre')
   const [expanded, setExpanded] = useState(false)
   const cardsButton = useRef<HTMLButtonElement>(null)
@@ -106,18 +121,19 @@ export default function CategoryBrowser ({ options, filters, mode, onModeChange,
     }
   }, [mode, filters.genre, filters.collection, filters.decade, filters.language, filters.performance, resultsReady])
   return <section className={styles.browser} aria-label='Ways to browse'>
-    <div className={styles.routes} role='group' aria-label='Browse method'>
+    <div className={styles.toolbar}><div className={styles.routes} role='group' aria-label='Browse method'>
       <button type='button' ref={cardsButton} aria-pressed={mode === 'cards'} aria-controls={id} onClick={browse}><Icon icon='NAV_LIBRARY' size={20} />Category cards</button>
       <button type='button' aria-pressed={mode === 'search'} onClick={() => { onModeChange('search'); onSearch() }}><Icon icon='MAGNIFIER' size={20} />Search &amp; filters</button>
-    </div>
+    </div>{mode === 'cards' && <div className={styles.artworkPicker} role='group' aria-label='Category artwork'><span>Artwork</span><button type='button' aria-pressed={artworkTheme === 'playful'} onClick={() => changeArtwork('playful')}>Playful</button><button type='button' aria-pressed={artworkTheme === 'serious'} onClick={() => changeArtwork('serious')}>Serious</button></div>}</div>
     {mode === 'cards' && <div id={id} className={styles.panel}>
       <div className={styles.heading}><div><h2>What are you in the mood for?</h2><p>Pick a category. Find your chorus.</p></div></div>
       {available.length > 0 && <div className={styles.groups} role='group' aria-label='Category groups'>{available.map(item => <button type='button' key={item.key} aria-pressed={key === item.key} onClick={() => { setGroup(item.key); setExpanded(false) }}>{item.label}</button>)}</div>}
       <div className={styles.grid} role='group' aria-label={current?.label ?? 'Categories'}>
         {(expanded ? values : values.slice(0, 8)).map(value => {
           const look = lookFor(key, value)
-          return <button type='button' key={value} className={`${styles.card} ${styles[look.tone]}`} aria-label={`Browse ${value}`} aria-pressed={filters[key] === value} onClick={() => { openingCategory.current = true; onChange({ ...resetCategories, [key]: value }); onModeChange('search'); onResults() }}>
-            <span className={styles.art}><CategoryIcon name={look.icon} /></span><span className={styles.cardIcon}><CategoryIcon name={look.icon} /></span>
+          const art = categoryArtwork(artworkTheme, key, value)
+          return <button type='button' key={value} className={`${styles.card} ${styles[look.tone]} ${art ? styles.imageCard : ''}`} aria-label={`Browse ${value}`} aria-pressed={filters[key] === value} onClick={() => { openingCategory.current = true; onChange({ ...resetCategories, [key]: value }); onModeChange('search'); onResults() }}>
+            {art ? <span className={styles.artwork} aria-hidden='true' data-artwork-theme={artworkTheme}><img src={art.src} alt='' loading='lazy' decoding='async' draggable={false} style={{ left: `${-art.column * 100}%`, top: `${-art.row * 100}%` }} /></span> : <><span className={styles.art}><CategoryIcon name={look.icon} /></span><span className={styles.cardIcon}><CategoryIcon name={look.icon} /></span></>}
             <strong>{value}</strong><small>{look.description}</small>
           </button>
         })}

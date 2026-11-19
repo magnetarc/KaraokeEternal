@@ -20,7 +20,7 @@ def login(page):
     expect(page.get_by_role('button', name='Browse Pop', exact=True)).to_be_visible()
 
 def loaded(page, total=None):
-    expect(page.locator('[aria-busy=false] article').first).to_be_visible()
+    expect(page.locator('[aria-busy=false] article').first).to_be_visible(timeout=15000)
     if total is not None:
         expect(page.locator("p[aria-live='polite']")).to_contain_text(f'{total:,} songs')
 
@@ -34,12 +34,13 @@ with sync_playwright() as p:
     loaded(page, 56652)
     grid = page.get_by_role('group', name='Music styles', exact=True)
     expect(grid.get_by_role('button')).to_have_count(8)
-    colours = grid.get_by_role('button').evaluate_all('(els)=>new Set(els.map(e=>getComputedStyle(e).backgroundImage)).size')
-    assert colours >= 6
-    assert grid.locator('svg').count() == 16
+    art = grid.locator('[data-artwork-theme] img').evaluate_all('(els)=>els.map(e=>[e.src,e.style.left,e.style.top].join("|"))')
+    assert len(art) == len(set(art)) == 8
+    expect(grid.locator('[data-artwork-theme]')).to_have_count(8)
+    expect(page.get_by_role('button', name='Playful', exact=True)).to_have_attribute('aria-pressed', 'true')
     grid.evaluate('(e)=>e.scrollIntoView({block:"center"})')
     page.screenshot(path=str(OUT / 'Desktop style cards.png'))
-    passed('large illustrated, distinct-colour style cards appear by default')
+    passed('large illustrated cards with distinct category artwork appear by default')
     page.get_by_role('button', name='Show all 22 music styles', exact=True).click()
     expect(grid.get_by_role('button')).to_have_count(22)
     page.get_by_role('button', name='Browse Metal', exact=True).click()

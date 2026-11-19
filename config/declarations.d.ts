@@ -3,6 +3,11 @@ declare module '*.css' {
   export = classes
 }
 
+declare module '*.webp' {
+  const url: string
+  export default url
+}
+
 interface Window {
   webkitAudioContext: typeof AudioContext
 }

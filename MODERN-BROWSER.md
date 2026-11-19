@@ -1,5 +1,29 @@
 # Modern browser test branch
 
+## Two artwork sets and visualiser default (19 November 2026)
+
+The category browser offers an Artwork switch for Playful character illustrations
+and Serious record-sleeve imagery. Both cover all 22 real styles and seven
+collections, with a custom-label fallback. Playful is the default. The setting
+is remembered separately for each signed-in account on the current browser,
+and shared by the full songbook and playable library. It works for the current
+session when browser preference storage is unavailable. Search/filter choices
+and category metadata are independent of the artwork setting.
+
+Labels are rendered as text over locally bundled, hashed WebP images; artwork
+is not fetched from a third-party service. The original generation prompts/PNGs
+are retained in the owner's project records. Factual filter groups keep their
+functional icons and appear only where corresponding labels exist.
+
+A fresh player session starts with the visualiser **off**. The existing Player
+Options > Display > Visualizer control still allows it to be enabled manually;
+reloading the player starts a new session with the off default. Song loading
+retains the current session's explicit visualiser selection.
+
+Run `python scripts/qa-artwork-themes.py` on the marked local preview to check
+artwork decoding/coverage, account preference isolation/persistence, phone
+layouts, storage failures and visualiser startup/manual control.
+
 ## Category cards and direct search (19 November 2026)
 
 Both `/songbook` and the playable `/library` open with large category cards,

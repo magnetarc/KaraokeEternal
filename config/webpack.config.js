@@ -164,7 +164,7 @@ config.module.rules.push(
     type: 'asset',
   },
   {
-    test: /\.(png|jpg|gif)$/,
+    test: /\.(png|jpg|gif|webp)$/,
     type: 'asset',
   },
 )
