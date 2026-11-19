@@ -1,4 +1,4 @@
-name: karaoke-modern
+version: "3.8"
 services:
   karaoke-modern:
     image: karaoke-modern:local

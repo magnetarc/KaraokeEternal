@@ -16,6 +16,12 @@ project folder. Over SSH, run:
 sudo sh /volume1/docker/karaoke-modern/install-nas.sh
 ```
 
+The installer searches both Synology Docker/Container Manager package paths
+and supports either the `docker compose` plugin or `docker-compose` command.
+The command search path is changed only within this installer. An SSH warning
+about the missing Conor home directory does not prevent this absolute-path
+installation; enabling home folders is unnecessary for this task.
+
 This builds the image, imports the prepared metadata before the first server
 start, and launches the server. A fresh production database is marked as
 managed, with no test banner. Repeat imports preserve existing host decisions;

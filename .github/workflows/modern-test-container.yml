@@ -15,6 +15,10 @@ jobs:
           persist-credentials: false
       - name: Build production image
         run: docker build -f Dockerfile -t karaoke-modern:ci .
+      - name: Check NAS installer shell syntax and production Compose
+        run: |
+          sh -n install-nas.sh
+          docker compose -p karaoke-modern -f compose.yaml config --quiet
       - name: Check production metadata import and HTTP startup
         run: node scripts/docker-smoke.mjs karaoke-modern:ci production
       - name: Check isolated QA metadata import and HTTP startup
