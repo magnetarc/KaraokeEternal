@@ -1,5 +1,25 @@
 # Modern browser test branch
 
+## Category cards and direct search (19 November 2026)
+
+Both `/songbook` and the playable `/library` open with large category cards,
+using distinct colours and vector icons. Music styles and collections offer
+two ways to explore; labelled decades, languages and voices appear when those
+values exist in that library. The first eight cards are shown with an option
+to reveal the remaining categories. Unknown factual fields are not invented.
+
+Select a card to open matching songs with an All categories return button.
+It clears previous category/text choices while retaining favourites/availability
+and the user's sort preference. Category controls use native buttons, support
+keyboard activation and manage focus when opening songs or returning.
+Search & filters keeps the compact text/dropdown route available; typing a
+query switches to that route. The responsive shared component also serves the
+playable browser reached by the existing QR entry point.
+
+No metadata, media, playback engine or queue algorithm changes are required.
+Run `python scripts/qa-category-cards.py` against the marked local preview for
+the desktop/390px card, filtering, keyboard, search and return-navigation checks.
+
 ## Full songbook and portable test deployment (overnight build)
 
 `/songbook` searches the entire staged collection through a full-text index,

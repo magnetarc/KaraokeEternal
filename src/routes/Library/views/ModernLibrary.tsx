@@ -13,6 +13,7 @@ import type { Song } from 'shared/types'
 import { emptyCategories, type SongCategories } from 'shared/catalog'
 import { browseSongs, defaultFilters, type BrowseFilters } from '../catalogBrowse'
 import styles from './ModernLibrary.css'
+import CategoryBrowser, { type CategoryMode } from './CategoryBrowser'
 
 const PAGE_SIZE = 40
 const api = new HttpApi()
@@ -78,6 +79,9 @@ export default function ModernLibrary () {
   const [editing, setEditing] = useState<Song | null>(null)
   const [message, setMessage] = useState('')
   const [isTest, setIsTest] = useState(false)
+  const [categoryMode, setCategoryMode] = useState<CategoryMode>('cards')
+  const searchInput = useRef<HTMLInputElement>(null)
+  const resultHeading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     let mounted = true
     api.get<{ isTest: boolean }>('instance').then(value => { if (mounted) setIsTest(value.isTest) }).catch(() => {})
@@ -98,6 +102,7 @@ export default function ModernLibrary () {
   const pages = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
   const safePage = Math.min(page, pages - 1)
   const update = (patch: Partial<BrowseFilters>) => { setFilters(previous => ({ ...previous, ...patch })); setPage(0) }
+  const showResults = () => requestAnimationFrame(() => resultHeading.current?.focus({ preventScroll: true }))
   const currentIndex = queue.result.indexOf(status.queueId)
   const current = status.isAtQueueEnd ? undefined : queue.entities[status.queueId]
   const upcoming = queue.result.slice(currentIndex + 1).filter(id => id !== current?.queueId).map(id => queue.entities[id])
@@ -123,18 +128,19 @@ export default function ModernLibrary () {
               <button aria-pressed={filters.favourites} onClick={() => update({ favourites: !filters.favourites })}><span>★</span>Favourites<small>Your saved singalongs</small></button>
               <button aria-pressed={filters.performance === 'Duet'} onClick={() => update({ performance: filters.performance === 'Duet' ? '' : 'Duet' })}><span>♬</span>Duets<small>Better together</small></button>
             </div>
-            <div className={styles.searchbox}><span aria-hidden='true'>⌕</span><input type='search' aria-label='Search songs or artists' placeholder='What do you feel like singing?' value={filters.query} onChange={e => update({ query: e.target.value })} />{filters.query && <button onClick={() => update({ query: '' })} aria-label='Clear song search'>×</button>}</div>
-            <button className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls='browser-category-filters' onClick={() => setFiltersOpen(!filtersOpen)}>Browse categories <span>{filtersOpen ? '−' : '+'}</span><small>Genre · Decade · Language · Voices · Collections</small></button>
+            <div className={styles.searchbox}><span aria-hidden='true'>⌕</span><input ref={searchInput} type='search' aria-label='Search songs or artists' placeholder='What do you feel like singing?' value={filters.query} onChange={e => { setCategoryMode('search'); update({ query: e.target.value }) }} />{filters.query && <button onClick={() => update({ query: '' })} aria-label='Clear song search'>×</button>}</div>
+            <CategoryBrowser options={options} filters={filters} mode={categoryMode} resultsReady={!library.isLoading} onModeChange={setCategoryMode} onChange={update} onResults={showResults} onSearch={() => { setFiltersOpen(true); requestAnimationFrame(() => searchInput.current?.focus()) }} />
+            <button className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls='browser-category-filters' onClick={() => { setCategoryMode('search'); setFiltersOpen(!filtersOpen) }}>Refine search <span>{filtersOpen ? '−' : '+'}</span><small>Genre · Decade · Language · Voices · Collections</small></button>
             <div id='browser-category-filters' className={`${styles.filters} ${filtersOpen ? styles.filtersOpen : ''}`}>
               {(['genre', 'decade', 'language', 'performance', 'collection'] as const).map(key => (
-                <label key={key}>{key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)}<select aria-label={key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)} value={filters[key]} onChange={e => update({ [key]: e.target.value })}>
+                <label key={key}>{key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)}<select aria-label={key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)} value={filters[key]} onChange={e => { setCategoryMode('search'); update({ [key]: e.target.value }) }}>
                   <option value=''>All {key === 'performance' ? 'voices' : key === 'collection' ? 'collections' : key + 's'}</option>
                   {[...new Set([...options[key], ...(filters[key] ? [filters[key]] : [])])].sort().map(v => <option key={v}>{v}</option>)}
                 </select></label>
               ))}
             </div>
             {options.genre.length === 0 && !library.isLoading && <p className={styles.tip}>A little organisation goes a long way. {user.isAdmin ? 'Use “Edit categories” on a song to add genres, decades and collections.' : 'Your host can add genres, decades and collections.'}</p>}
-            <div className={styles.resultsTop}><div><h2>{active ? 'Your matches' : 'The songbook'}</h2><p aria-live='polite'>{library.isLoading ? 'Loading library…' : `${results.length.toLocaleString()} songs`}{active && <> · <button onClick={() => update(defaultFilters)}>Clear filters</button></>}</p></div><label>Sort by<select aria-label='Sort by' value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value='popular'>Popular first</option><option value='title'>Song title</option><option value='artist'>Artist</option><option value='duration'>Shortest first</option></select></label></div>
+            <div className={styles.resultsTop}><div><h2 ref={resultHeading} tabIndex={-1} style={{ scrollMarginTop: headerHeight + 16 }}>{active ? 'Your matches' : 'The songbook'}</h2><p aria-live='polite'>{library.isLoading ? 'Loading library…' : `${results.length.toLocaleString()} songs`}{active && <> · <button onClick={() => update(defaultFilters)}>Clear filters</button></>}</p></div><label>Sort by<select aria-label='Sort by' value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value='popular'>Popular first</option><option value='title'>Song title</option><option value='artist'>Artist</option><option value='duration'>Shortest first</option></select></label></div>
             {filters.sort === 'popular' && <p className={styles.muted}>Exact title matches first, then host picks, shared favourites and this room’s queue activity.</p>}
             {user.isAdmin && <label className={styles.untagged}><input type='checkbox' checked={filters.untagged} onChange={e => update({ untagged: e.target.checked })} /> Show uncategorised songs</label>}
             <p className={styles.srOnly} role='status'>{message}</p>

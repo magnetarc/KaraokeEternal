@@ -1,0 +1,39 @@
+.browser { margin:20px 0 24px; }
+.routes { display:flex; gap:6px; padding:5px; border:1px solid #353747; border-radius:12px; background:#171a26; width:fit-content; max-width:100%; }
+.routes button { display:flex; align-items:center; justify-content:center; gap:9px; min-height:46px; padding:10px 16px; border:1px solid transparent; border-radius:8px; background:transparent; color:#bac0d1; font-size:14px; font-weight:600; }
+.routes svg { width:20px; flex-shrink:0; }
+.routes button[aria-pressed=true] { color:#ffca9b; background:#382d2c; border-color:#6a5041; }
+.panel { margin-top:24px; }
+.heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:16px; }
+.heading h2 { font-size:23px; letter-spacing:-.5px; }
+.heading p { color:#adb4c8; font-size:14px; margin:8px 0 0; }
+.groups { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+.groups button { min-height:42px; color:#aeb7cd; border:1px solid #383d51; border-radius:24px; padding:8px 16px; background:transparent; font-size:14px; }
+.groups button[aria-pressed=true] { color:#f4f1fa; border-color:#9b86bf; background:#393047; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; }
+.card { --card:#bca0ff; --wash:#302440; position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; min-height:158px; min-width:0; padding:20px; border:1px solid #5b4b64; border-color:color-mix(in srgb,var(--card) 45%,#222637); border-radius:14px; background:linear-gradient(125deg,var(--wash),#191c2b 130%); text-align:left; color:#fff5ff; isolation:isolate; transition:transform .15s ease,border-color .15s ease; }
+.card:hover { transform:translateY(-3px); border-color:var(--card); }
+.card[aria-pressed=true] { outline:2px solid var(--card); outline-offset:3px; }
+.cardIcon { display:block; height:32px; width:32px; color:var(--card); margin-bottom:18px; }
+.cardIcon svg { width:100%; height:100%; }
+.card strong { position:relative; font-size:21px; font-weight:700; line-height:1.18; overflow-wrap:anywhere; }
+.card small { position:relative; display:block; margin-top:8px; font-size:13px; line-height:1.45; color:#e0dbea; max-width:95%; }
+.art { position:absolute; z-index:-1; right:-16px; top:-5px; height:130px; width:130px; color:var(--card); opacity:.13; transform:rotate(15deg); }
+.art svg { height:100%; width:100%; }
+.pink { --card:#ffadd4; --wash:#583148; }
+.orange { --card:#ffb78a; --wash:#58382e; }
+.gold { --card:#f3d28b; --wash:#4d422a; }
+.purple { --card:#ceafff; --wash:#443253; }
+.teal { --card:#8ce5df; --wash:#254747; }
+.blue { --card:#abcaff; --wash:#2a3c56; }
+.green { --card:#b0df9d; --wash:#304731; }
+.more { display:block; min-height:44px; margin:16px auto 0; padding:10px 18px; color:#d7c8ee; background:#252134; border:1px solid #574765; border-radius:9px; font-size:14px; }
+.selection { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 18px; margin-top:18px; border:1px solid #5e496c; border-radius:12px; background:linear-gradient(100deg,#302538,#1e2130); scroll-margin-top:64px; }
+.routes { scroll-margin-top:64px; }
+.selection span { display:block; color:#c4b1d8; letter-spacing:1.3px; font-size:10px; font-weight:650; margin-bottom:5px; }
+.selection strong { display:block; font-size:19px; line-height:1.4; overflow-wrap:anywhere; }
+.selection button { flex-shrink:0; min-height:44px; color:#ffd1a8; font-size:14px; border:1px solid #685442; border-radius:8px; background:#332b2c; padding:10px 14px; }
+.empty { font-size:14px; line-height:1.6; color:#adb4c8; }
+@media(min-width:1100px) { .grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media(max-width:480px) { .browser { margin:16px 0 20px; } .routes { display:flex; width:100%; } .routes button { flex:1; min-width:0; padding:10px 7px; font-size:13px; gap:7px; } .routes svg { width:17px; } .heading h2 { font-size:22px; line-height:1.3; } .panel { margin-top:20px; } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; } .card { min-height:150px; padding:16px 13px; } .card strong { font-size:18px; } .card small { font-size:12px; } .cardIcon { height:28px; width:28px; margin-bottom:14px; } .groups { gap:6px; } .groups button { padding:8px 12px; font-size:13px; } .selection { padding:12px; gap:10px; } .selection strong { font-size:17px; } .selection button { font-size:12px; padding:8px 10px; } }
+@media(prefers-reduced-motion:reduce) { .card { transition:none; } .card:hover { transform:none; } }

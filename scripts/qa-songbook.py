@@ -66,7 +66,7 @@ with sync_playwright() as p:
     options=host.request.get(BASE+'/api/songbook/options').json()
     assert options['genre']
     assert options['language']==[] and options['decade']==[] and options['performance']==[]
-    mobile.get_by_role('button',name='Browse categories').click()
+    mobile.get_by_role('button',name='Refine search').click()
     mobile.get_by_label('Style',exact=True).select_option('Rock')
     expect(mobile.locator('[aria-busy=false] article').first).to_be_visible()
     for e in singer.request.get(BASE+'/api/songbook/?genre=Rock').json()['entries']:

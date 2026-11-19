@@ -10,6 +10,7 @@ import { songbookDefaults, type SongbookFilters, type SongbookListing, type Song
 import styles from './ModernLibrary.css'
 import bookStyles from './SongbookView.css'
 import { type SongCategories } from 'shared/catalog'
+import CategoryBrowser, { type CategoryMode } from './CategoryBrowser'
 
 const api = new HttpApi('songbook')
 const emptyOptions: SongbookOptions = { genre: [], language: [], decade: [], collection: [], performance: [] }
@@ -58,8 +59,12 @@ export default function SongbookView () {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [busy, setBusy] = useState<number | null>(null)
   const [editing, setEditing] = useState<SongbookEntry | null>(null)
+  const [categoryMode, setCategoryMode] = useState<CategoryMode>('cards')
+  const searchInput = useRef<HTMLInputElement>(null)
+  const resultHeading = useRef<HTMLHeadingElement>(null)
   const container = useRef<HTMLElement>(null)
   const update = (patch: Partial<SongbookFilters>) => setFilters(previous => ({ ...previous, ...patch, offset: 0 }))
+  const showResults = () => requestAnimationFrame(() => resultHeading.current?.focus({ preventScroll: true }))
   useEffect(() => { api.get<SongbookOptions>('/options').then(setOptions).catch(err => setError(err.message)) }, [])
   useEffect(() => {
     const controller = new AbortController()
@@ -95,13 +100,14 @@ export default function SongbookView () {
         <button aria-pressed={filters.favourites} onClick={() => update({ favourites: !filters.favourites })}><span>★</span>Favourites<small>Your saved singalongs</small></button>
         <button aria-pressed={filters.available} onClick={() => update({ available: !filters.available })}><span>▶</span>Ready to sing<small>Scanned and playable</small></button>
       </div>
-      <div className={styles.searchbox}><span aria-hidden='true'>⌕</span><input type='search' aria-label='Search full songbook' placeholder='Song, artist, or both…' value={filters.query} onChange={e => update({ query: e.target.value })} />{filters.query && <button aria-label='Clear songbook search' onClick={() => update({ query: '' })}>×</button>}</div>
-      <button className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls='songbook-filters' onClick={() => setFiltersOpen(!filtersOpen)}>Browse categories <span>{filtersOpen ? '−' : '+'}</span><small>Styles · Collections · Verified song details</small></button>
+      <div className={styles.searchbox}><span aria-hidden='true'>⌕</span><input ref={searchInput} type='search' aria-label='Search full songbook' placeholder='Song, artist, or both…' value={filters.query} onChange={e => { setCategoryMode('search'); update({ query: e.target.value }) }} />{filters.query && <button aria-label='Clear songbook search' onClick={() => update({ query: '' })}>×</button>}</div>
+      <CategoryBrowser options={options} filters={filters} mode={categoryMode} resultsReady={!loading} onModeChange={setCategoryMode} onChange={update} onResults={showResults} onSearch={() => { setFiltersOpen(true); requestAnimationFrame(() => searchInput.current?.focus()) }} />
+      <button className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls='songbook-filters' onClick={() => { setCategoryMode('search'); setFiltersOpen(!filtersOpen) }}>Refine search <span>{filtersOpen ? '−' : '+'}</span><small>Styles · Collections · Verified song details</small></button>
       <div id='songbook-filters' className={`${styles.filters} ${bookStyles.categories} ${filtersOpen ? styles.filtersOpen : ''}`}>
-        {(['genre', 'collection', 'decade', 'language', 'performance'] as const).filter(key => options[key].length > 0).map(key => <label key={key}>{key === 'genre' ? 'Style' : key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)}<select aria-label={key === 'genre' ? 'Style' : key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)} value={filters[key]} onChange={e => update({ [key]: e.target.value })}><option value=''>Any</option>{options[key].map(v => <option key={v}>{v}</option>)}</select></label>)}
+        {(['genre', 'collection', 'decade', 'language', 'performance'] as const).filter(key => options[key].length > 0).map(key => <label key={key}>{key === 'genre' ? 'Style' : key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)}<select aria-label={key === 'genre' ? 'Style' : key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)} value={filters[key]} onChange={e => { setCategoryMode('search'); update({ [key]: e.target.value }) }}><option value=''>Any</option>{options[key].map(v => <option key={v}>{v}</option>)}</select></label>)}
       </div>
       <details className={bookStyles.notes}><summary>About styles and Popular first</summary><p>Styles include unreviewed AI suggestions and artist context. Unknown song details stay blank. Popular first uses editorial suggestions, host picks and shared favourites; it is not a chart ranking.</p></details>
-      <div className={styles.resultsTop}><div><h2>{filters.favourites ? 'Your favourites' : active ? 'Your matches' : 'Explore the songbook'}</h2><p aria-live='polite'>{loading ? 'Searching…' : `${result?.total.toLocaleString() ?? 0} songs`}{active && <> · <button onClick={() => update(songbookDefaults)}>Clear filters</button></>}</p></div><label>Sort by<select aria-label='Sort songbook' value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value='popular'>Popular first</option><option value='title'>Song title</option><option value='artist'>Artist</option></select></label></div>
+      <div className={styles.resultsTop}><div><h2 ref={resultHeading} tabIndex={-1} style={{ scrollMarginTop: headerHeight + 16 }}>{filters.favourites ? 'Your favourites' : active ? 'Your matches' : 'Explore the songbook'}</h2><p aria-live='polite'>{loading ? 'Searching…' : `${result?.total.toLocaleString() ?? 0} songs`}{active && <> · <button onClick={() => update(songbookDefaults)}>Clear filters</button></>}</p></div><label>Sort by<select aria-label='Sort songbook' value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value='popular'>Popular first</option><option value='title'>Song title</option><option value='artist'>Artist</option></select></label></div>
       {user.isAdmin && <label className={styles.untagged}><input type='checkbox' checked={filters.untagged} onChange={e => update({ untagged: e.target.checked })} /> Show songs without a style</label>}
       {error && <p role='alert' className={bookStyles.error}>{error} <button onClick={() => refresh(v => v + 1)}>Try again</button></p>}
       <p role='status' className={styles.srOnly}>{message}</p>

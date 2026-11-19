@@ -94,11 +94,11 @@ with sync_playwright() as p:
     assert anonymous.request.put(BASE + '/api/song/1/categories', data={}).status == 403
     anonymous.close()
     passed('category API rejects anonymous, non-host, invalid and missing-song writes')
-    singer.get_by_role('button', name='Browse categories', exact=False).click()
+    singer.get_by_role('button', name='Refine search', exact=False).click()
     singer.get_by_label('Language', exact=True).select_option('Mandarin')
     expect(singer.get_by_role('article')).to_have_count(1)
     singer.get_by_role('button', name='All songs', exact=False).click()
-    singer.get_by_role('button', name='Browse categories', exact=False).click()
+    singer.get_by_role('button', name='Refine search', exact=False).click()
     passed('phone category disclosure and language filtering')
     singer.get_by_role('link', name='Queue', exact=True).click()
     expect(singer.get_by_role('button', name='Remove', exact=True)).to_have_count(1)
