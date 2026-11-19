@@ -3,10 +3,11 @@ import assert from 'node:assert/strict'
 const fixture = `
 import assert from 'node:assert/strict';
 const {initLogger}=await import('/app/build/server/lib/Log.js');initLogger('versions-ci',{console:{level:1},file:{level:0}});
-const {open,close,db}=await import('/app/build/server/lib/Database.js');
+const database=await import('/app/build/server/lib/Database.js');
 const {default:Media}=await import('/app/build/server/Media/Media.js');
 const {default:Queue}=await import('/app/build/server/Queue/Queue.js');
-open({file:':memory:',ro:false});
+database.open({file:':memory:',ro:false});
+const db=database.db;
 try{
 const put=(sql,args=[])=>Number(db.run(sql,args).lastID);
 const a=put("INSERT INTO artists(name,nameNorm)VALUES('Fixture','fixture')");
@@ -21,7 +22,7 @@ const q=Queue.get(r);assert.equal(q.entities[q.result[0]].mediaId,second);assert
 assert.throws(()=>Queue.add({roomId:r,songId:s,userId:u,mediaId:9999}));
 assert.equal(db.get('PRAGMA quick_check').quick_check,'ok');
 console.log('PASS: Linux image migration and exact-version queue selection preserve the requested backing track');
-}finally{close()}
+}finally{database.close()}
 `
 const result = spawnSync('docker', ['run', '--rm', process.argv[2] ?? 'karaoke-modern:ci', 'node', '--input-type=module', '-e', fixture], { encoding: 'utf8' })
 assert.equal(result.status, 0, result.stdout + result.stderr)
