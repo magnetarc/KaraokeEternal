@@ -24,6 +24,6 @@ assert.equal(db.get('PRAGMA quick_check').quick_check,'ok');
 console.log('PASS: Linux image migration and exact-version queue selection preserve the requested backing track');
 }finally{database.close()}
 `
-const result = spawnSync('docker', ['run', '--rm', process.argv[2] ?? 'karaoke-modern:ci', 'node', '--input-type=module', '-e', fixture], { encoding: 'utf8' })
+const result = spawnSync('docker', ['run', '--rm', '--network', 'none', process.argv[2] ?? 'karaoke-modern:ci', 'node', '--input-type=module', '-e', fixture], { encoding: 'utf8' })
 assert.equal(result.status, 0, result.stdout + result.stderr)
 console.log(result.stdout)

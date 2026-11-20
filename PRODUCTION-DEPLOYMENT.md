@@ -77,7 +77,11 @@ Local development and automated QA retain their separate test commands/files.
 
 The version-selection update supplies tested prebuilt images for AMD64 and
 ARM64 under `release-images/<source-commit>/<architecture>`. Source commit,
-SHA256 and image ID are checked before use. Run the Windows `Update on NAS.cmd`
+SHA256 and image ID are checked before use. The export identity and config digest
+are both recorded: classic Docker 24 reports the config digest, while newer
+containerd stores can report an index/manifest digest. Only those verified
+identities are accepted. Failures save their phase and observed identity.
+Run the Windows `Update on NAS.cmd`
 launcher and enter the NAS administrator password privately, or use:
 
 ```sh

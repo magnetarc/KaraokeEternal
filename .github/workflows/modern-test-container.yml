@@ -25,7 +25,9 @@ jobs:
       - name: Check override selection on Synology-style BusyBox ash
         run: |
           sh scripts/test-nas-compose.sh
+          sh scripts/test-nas-image-identity.sh
           docker run --rm --mount type=bind,source="$PWD",target=/work,readonly -w /work busybox:1.28 sh scripts/test-nas-compose.sh
+          docker run --rm --mount type=bind,source="$PWD",target=/work,readonly -w /work busybox:1.28 sh scripts/test-nas-image-identity.sh
       - name: Check NAS installer shell syntax and production Compose
         run: |
           sh -n install-nas.sh
@@ -42,6 +44,9 @@ jobs:
         run: node scripts/docker-versions-smoke.mjs karaoke-modern:ci
       - name: Reproduce private media permissions and verify NAS repair
         run: node scripts/nas-access-smoke.mjs karaoke-modern:ci
+      - name: Import and run the modern export on NAS-era Docker 24
+        if: matrix.arch == 'amd64'
+        run: node scripts/docker24-image-smoke.mjs karaoke-modern:ci
       - name: Export verified image
         run: |
           mkdir -p image-export
@@ -49,6 +54,7 @@ jobs:
           docker save karaoke-modern:local | gzip -1 > image-export/karaoke-modern-image.tar.gz
           (cd image-export && sha256sum karaoke-modern-image.tar.gz > karaoke-modern-image.tar.gz.sha256)
           docker image inspect --format '{{.Id}}' karaoke-modern:local > image-export/image-id.txt
+          python3 scripts/image-config-id.py image-export/karaoke-modern-image.tar.gz --arch '${{ matrix.arch }}' > image-export/image-config-id.txt
           echo '${{ github.sha }}' > image-export/source-commit.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

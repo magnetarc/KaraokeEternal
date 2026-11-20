@@ -73,6 +73,7 @@ try {
   mkdirSync(bundle, { recursive: true })
   const archive = path.join(bundle, 'karaoke-modern-image.tar.gz')
   command('docker', ['save', '-o', archive, 'karaoke-modern:local'])
+  writeFileSync(path.join(bundle, 'image-config-id.txt'), command('python3', ['scripts/image-config-id.py', archive, '--arch', arch]).stdout)
   const hash = createHash('sha256').update(readFileSync(archive)).digest('hex')
   writeFileSync(path.join(bundle, 'karaoke-modern-image.tar.gz.sha256'), `${hash}  karaoke-modern-image.tar.gz\n`)
   writeFileSync(path.join(bundle, 'source-commit.txt'), release + '\n')
