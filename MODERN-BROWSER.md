@@ -1,5 +1,11 @@
 # Modern browser test branch
 
+## Party usability release (20 November 2026)
+
+See [the current release notes](PARTY-USABILITY.md) for the compact browser,
+recommendations, persistent queue/history, replay behaviour and playback checks.
+Artwork now lives in Account > Appearance. Earlier sections describe older releases.
+
 ## Two artwork sets and visualiser default (19 November 2026)
 
 The category browser offers an Artwork switch for Playful character illustrations

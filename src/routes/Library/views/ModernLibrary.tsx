@@ -1,12 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import { ensureState } from 'redux-optimistic-ui'
 import { useAppDispatch, useAppSelector } from 'store/hooks'
-import { queueSong, removeItem } from 'routes/Queue/modules/queue'
-import getRoundRobinQueue from 'routes/Queue/selectors/getRoundRobinQueue'
+import { queueSong } from 'routes/Queue/modules/queue'
 import getSongsStatus from '../selectors/getSongsStatus'
 import { toggleSongStarred } from 'store/modules/userStars'
-import { requestPlayNext } from 'store/modules/status'
 import { formatDuration } from 'lib/dateTime'
 import HttpApi from 'lib/HttpApi'
 import type { Song } from 'shared/types'
@@ -14,18 +11,26 @@ import { emptyCategories, type SongCategories } from 'shared/catalog'
 import { browseSongs, defaultFilters, type BrowseFilters } from '../catalogBrowse'
 import styles from './ModernLibrary.css'
 import CategoryBrowser, { type CategoryMode } from './CategoryBrowser'
+import useBrowseState from '../useBrowseState'
+import { browseOptions } from '../browseOptions'
+import BrowserBar from '../components/BrowserBar'
+import BrowsePagination from '../components/BrowsePagination'
+import SongRow from '../components/SongRow'
 import SongVersions, { type VersionSong } from '../components/SongVersions/SongVersions'
 
 const PAGE_SIZE = 40
+const browseDefaults = { ...defaultFilters, page: 0, mode: 'cards' as CategoryMode }
 const api = new HttpApi()
 
 function CategoryEditor ({ song, onClose }: { song: Song, onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const [tags, setTags] = useState<SongCategories>({ ...emptyCategories, ...song.categories })
   const [collections, setCollections] = useState(tags.collections.join(', '))
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  useEffect(() => { dialog.current?.showModal() }, [])
+  useEffect(() => {
+    dialogRef.current?.showModal()
+  }, [])
   const save = async (event: React.FormEvent) => {
     event.preventDefault()
     setSaving(true)
@@ -33,29 +38,48 @@ function CategoryEditor ({ song, onClose }: { song: Song, onClose: () => void })
     try {
       await api.put(`song/${song.songId}/categories`, { body: { ...tags, collections: collections.split(',').map(v => v.trim()).filter(Boolean) } })
       onClose()
-    } catch (err) { setError(err instanceof Error ? err.message : 'Could not save categories') } finally { setSaving(false) }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save categories')
+    } finally {
+      setSaving(false)
+    }
   }
   return (
-    <dialog ref={dialog} className={styles.dialog} onCancel={onClose} aria-labelledby='category-title'>
+    <dialog ref={dialogRef} className={styles.dialog} onCancel={onClose} aria-labelledby='category-title'>
       <form onSubmit={save}>
         <p className={styles.eyebrow}>ORGANISE YOUR LIBRARY</p>
         <h2 id='category-title'>Edit categories</h2>
         <p>{song.title}</p>
         <div className={styles.editGrid}>
           {(['genre', 'language', 'decade'] as const).map(key => (
-            <label key={key}>{key === 'decade' ? 'Decade (e.g. 1980s)' : key === 'genre' ? 'Genre' : 'Language'}
+            <label key={key}>
+              {key === 'decade' ? 'Decade (e.g. 1980s)' : key === 'genre' ? 'Genre' : 'Language'}
               <input type='text' maxLength={40} value={tags[key]} onChange={e => setTags({ ...tags, [key]: e.target.value, ...(key === 'genre' ? { genres: undefined } : key === 'language' ? { languages: undefined } : {}) })} />
             </label>
           ))}
-          <label>Performance<select value={tags.performance} onChange={e => setTags({ ...tags, performance: e.target.value })}>
-            <option value=''>Uncategorised</option>{['Solo', 'Duet', 'Group'].map(v => <option key={v}>{v}</option>)}
-          </select></label>
+          <label>
+            Performance
+            <select value={tags.performance} onChange={e => setTags({ ...tags, performance: e.target.value })}>
+              <option value=''>Uncategorised</option>
+              {['Solo', 'Duet', 'Group'].map(v => <option key={v}>{v}</option>)}
+            </select>
+          </label>
         </div>
-        <label>Collections (separate with commas)<input type='text' value={collections} onChange={e => setCollections(e.target.value)} placeholder='Party starters, Crowd favourites' /></label>
-        <label><input type='checkbox' checked={!!tags.featured} onChange={e => setTags({ ...tags, featured: e.target.checked })} /> Promote in Popular first</label>
+        <label>
+          Collections (separate with commas)
+          <input type='text' value={collections} onChange={e => setCollections(e.target.value)} placeholder='Party starters, Crowd favourites' />
+        </label>
+        <label>
+          <input type='checkbox' checked={!!tags.featured} onChange={e => setTags({ ...tags, featured: e.target.checked })} />
+          {' '}
+          Promote in Popular first
+        </label>
         <p className={styles.muted}>Categories are shared with everyone. Leave a field blank if you are unsure.</p>
         {error && <p role='alert'>{error}</p>}
-        <div className={styles.dialogActions}><button type='button' onClick={onClose} disabled={saving}>Cancel</button><button className={styles.primary} disabled={saving}>{saving ? 'Saving…' : 'Save categories'}</button></div>
+        <div className={styles.dialogActions}>
+          <button type='button' onClick={onClose} disabled={saving}>Cancel</button>
+          <button className={styles.primary} disabled={saving}>{saving ? 'Saving…' : 'Save categories'}</button>
+        </div>
       </form>
     </dialog>
   )
@@ -71,113 +95,144 @@ export default function ModernLibrary () {
   const sharedStars = useAppSelector(state => state.starCounts)
   const starredSongs = useAppSelector(state => ensureState(state.userStars).starredSongs)
   const stars = useMemo(() => new Set(starredSongs), [starredSongs])
-  const queue = useAppSelector(getRoundRobinQueue)
-  const status = useAppSelector(state => state.status)
   const songStatus = useAppSelector(getSongsStatus)
-  const [filters, setFilters] = useState<BrowseFilters>(defaultFilters)
-  const [page, setPage] = useState(0)
+  const containerRef = useRef<HTMLElement>(null)
+  const { state: filters, change, onScroll } = useBrowseState(browseDefaults, containerRef)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [editing, setEditing] = useState<Song | null>(null)
   const [versionSong, setVersionSong] = useState<VersionSong | null>(null)
   const [message, setMessage] = useState('')
-  const [isTest, setIsTest] = useState(false)
-  const [categoryMode, setCategoryMode] = useState<CategoryMode>('cards')
-  const searchInput = useRef<HTMLInputElement>(null)
-  const resultHeading = useRef<HTMLHeadingElement>(null)
-  useEffect(() => {
-    let mounted = true
-    api.get<{ isTest: boolean }>('instance').then(value => { if (mounted) setIsTest(value.isTest) }).catch(() => {})
-    return () => { mounted = false }
-  }, [])
-  const container = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null)
   const allSongs = useMemo(() => songs.result.map(id => songs.entities[id]), [songs])
-  const versionCount = useMemo(() => allSongs.reduce((total, song) => total + song.numMedia, 0), [allSongs])
-  const options = useMemo(() => {
-    const values = (key: 'genre' | 'decade' | 'language' | 'performance' | 'collections') => [...new Set(allSongs.flatMap(s => key === 'genre' ? [s.categories?.genre, ...(s.categories?.genres ?? [])] : key === 'language' ? [s.categories?.language, ...(s.categories?.languages ?? [])] : s.categories?.[key] ?? []).filter(Boolean))].sort()
-    return { genre: values('genre'), decade: values('decade'), language: values('language'), performance: values('performance'), collection: values('collections') }
-  }, [allSongs])
-  const popularity = useMemo(() => {
-    const queued: Record<number, number> = {}
-    for (const id of queue.result) { const songId = queue.entities[id].songId; queued[songId] = (queued[songId] ?? 0) + 1 }
-    return { songs: sharedStars.songs, artists: sharedStars.artists, queued }
-  }, [sharedStars, queue])
-  const results = useMemo(() => browseSongs(allSongs, artists, stars, filters, popularity), [allSongs, artists, stars, filters, popularity])
+  const options = useMemo(() => browseOptions(allSongs), [allSongs])
+  const refinements = useMemo(() => browseOptions(allSongs, filters), [allSongs, filters])
+  const canRefine = user.isAdmin || Object.entries(refinements).some(([key, values]) => values.length > 0 && !(key === 'genre' && filters.genre))
+  // Queue additions must not reorder the list underneath the singer.
+  const results = useMemo(() => browseSongs(allSongs, artists, stars, filters, { songs: sharedStars.songs, artists: sharedStars.artists }), [allSongs, artists, stars, filters, sharedStars])
   const pages = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
-  const safePage = Math.min(page, pages - 1)
-  const update = (patch: Partial<BrowseFilters>) => { setFilters(previous => ({ ...previous, ...patch })); setPage(0) }
-  const showResults = () => requestAnimationFrame(() => resultHeading.current?.focus({ preventScroll: true }))
-  const currentIndex = queue.result.indexOf(status.queueId)
-  const current = status.isAtQueueEnd ? undefined : queue.entities[status.queueId]
-  const upcoming = queue.result.slice(currentIndex + 1).filter(id => id !== current?.queueId).map(id => queue.entities[id])
+  const page = Math.min(filters.page, pages - 1)
+  const update = (patch: Partial<BrowseFilters>, mode: CategoryMode = 'search') => change({ ...patch, page: 0, mode })
   const active = filters.query || filters.genre || filters.decade || filters.language || filters.performance || filters.collection || filters.favourites || filters.untagged
-
+  const showSongs = filters.mode === 'search' || !!active
+  const title = filters.genre || filters.collection || filters.decade || filters.language || filters.performance || (filters.favourites ? 'Favourites' : filters.query ? 'Search results' : 'All songs')
+  const pagination = (label: string) => <BrowsePagination label={label} page={page} pages={pages} onChange={page => change({ page, mode: 'search' })} />
   return (
-    <main className={styles.browser} ref={container} style={{ paddingTop: headerHeight + 24, paddingBottom: footerHeight + 28, height: innerHeight }}>
+    <main className={styles.browser} ref={containerRef} onScroll={onScroll} style={{ top: headerHeight, paddingBottom: footerHeight + 20, height: innerHeight - headerHeight }}>
       <div className={styles.shell}>
-        <div className={styles.topline}><span className={styles.brand}>♫ <strong>Karaoke Eternal</strong><span className={styles.preview}>BROWSER PREVIEW</span></span><span>{user.isAdmin && <Link to='/catalogue'>Organise library · </Link>}<Link to='/library?view=classic'>Original search ↗</Link></span></div>
-        {isTest && <p className={styles.demo}>TEST LIBRARY · This instance is separate from your live karaoke setup.</p>}
-        <p className={styles.tip}><Link to='/songbook'>Explore the full songbook →</Link> · Search the indexed collection and save favourites.</p>
-        <div className={styles.layout}>
-          <section className={styles.main} aria-label='Song browser'>
-            <header className={styles.hero}>
-              <p className={styles.eyebrow}>YOUR NIGHT. YOUR SONG.</p>
-              <h1>Find your next<br />{' '}<em>big moment.</em></h1>
-              <p>Old favourites. New discoveries. One more chorus.</p>
-              <div className={styles.stats}><span><b>{allSongs.length.toLocaleString()}</b> songs</span><span><b>{versionCount.toLocaleString()}</b> versions</span><span><b>{stars.size}</b> favourites</span><span><b>{upcoming.length}</b> up next</span></div>
-              <span className={styles.heroNote} aria-hidden='true'>♪</span>
-            </header>
-            <div className={styles.shortcuts} aria-label='Quick categories'>
-              <button aria-pressed={!active} onClick={() => update(defaultFilters)}><span>♫</span>All songs<small>The whole collection</small></button>
-              <button aria-pressed={filters.favourites} onClick={() => update({ favourites: !filters.favourites })}><span>★</span>Favourites<small>Your saved singalongs</small></button>
-              <button aria-pressed={filters.performance === 'Duet'} onClick={() => update({ performance: filters.performance === 'Duet' ? '' : 'Duet' })}><span>♬</span>Duets<small>Better together</small></button>
+        <BrowserBar isAdmin={user.isAdmin} category={title} onCategories={showSongs ? () => update(defaultFilters, 'cards') : undefined}>
+          <div className={styles.searchRow}>
+            <div className={styles.searchbox}>
+              <span aria-hidden='true'>⌕</span>
+              <input ref={searchInputRef} type='search' aria-label='Search songs or artists' placeholder='Search songs or artists' value={filters.query} onChange={e => change({ query: e.target.value, page: 0, mode: 'search' }, true)} />
+              {filters.query && <button onClick={() => update({ query: '' })} aria-label='Clear song search'>×</button>}
             </div>
-            <div className={styles.searchbox}><span aria-hidden='true'>⌕</span><input ref={searchInput} type='search' aria-label='Search songs or artists' placeholder='What do you feel like singing?' value={filters.query} onChange={e => { setCategoryMode('search'); update({ query: e.target.value }) }} />{filters.query && <button onClick={() => update({ query: '' })} aria-label='Clear song search'>×</button>}</div>
-            <CategoryBrowser options={options} filters={filters} mode={categoryMode} resultsReady={!library.isLoading} onModeChange={setCategoryMode} onChange={update} onResults={showResults} onSearch={() => { setFiltersOpen(true); requestAnimationFrame(() => searchInput.current?.focus()) }} />
-            <button className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls='browser-category-filters' onClick={() => { setCategoryMode('search'); setFiltersOpen(!filtersOpen) }}>Refine search <span>{filtersOpen ? '−' : '+'}</span><small>Genre · Decade · Language · Voices · Collections</small></button>
-            <div id='browser-category-filters' className={`${styles.filters} ${filtersOpen ? styles.filtersOpen : ''}`}>
-              {(['genre', 'decade', 'language', 'performance', 'collection'] as const).map(key => (
-                <label key={key}>{key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)}<select aria-label={key === 'performance' ? 'Voices' : key[0].toUpperCase() + key.slice(1)} value={filters[key]} onChange={e => { setCategoryMode('search'); update({ [key]: e.target.value }) }}>
-                  <option value=''>All {key === 'performance' ? 'voices' : key === 'collection' ? 'collections' : key + 's'}</option>
-                  {[...new Set([...options[key], ...(filters[key] ? [filters[key]] : [])])].sort().map(v => <option key={v}>{v}</option>)}
-                </select></label>
+            <button className={styles.favourites} aria-pressed={filters.favourites} onClick={() => update({ favourites: !filters.favourites })}>
+              ★
+              <span>Favourites</span>
+            </button>
+          </div>
+        </BrowserBar>
+        <CategoryBrowser options={options} filters={filters} mode={filters.mode} onChange={update} onResults={() => requestAnimationFrame(() => resultHeadingRef.current?.focus({ preventScroll: true }))} onSearch={() => searchInputRef.current?.focus()} />
+        {!showSongs && (
+          <p className={styles.librarySize}>
+            {allSongs.length.toLocaleString()}
+            {' '}
+            songs ·
+            {' '}
+            {allSongs.reduce((n, s) => n + s.numMedia, 0).toLocaleString()}
+            {' '}
+            versions
+          </p>
+        )}
+        {showSongs && (
+          <>
+            <div className={styles.resultsTop}>
+              <div>
+                <h1 ref={resultHeadingRef} tabIndex={-1}>{title}</h1>
+                <p aria-live='polite'>{library.isLoading ? 'Loading…' : `${results.length.toLocaleString()} songs`}</p>
+              </div>
+              <label>
+                Sort
+                <select aria-label='Sort by' value={filters.sort} onChange={e => update({ sort: e.target.value })}>
+                  <option value='popular'>Recommended</option>
+                  <option value='title'>Song title</option>
+                  <option value='artist'>Artist</option>
+                  <option value='duration'>Shortest first</option>
+                </select>
+              </label>
+              {canRefine && <button className={styles.filterToggle} aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>Filters</button>}
+            </div>
+            {filtersOpen && canRefine && (
+              <div className={`${styles.filters} ${styles.filtersOpen}`}>
+                {(['genre', 'decade', 'language', 'performance', 'collection'] as const).filter(key => refinements[key].length > 0 && !(key === 'genre' && filters.genre)).map(key => (
+                  <label key={key}>
+                    {key === 'performance' ? 'Voices' : key}
+                    <select aria-label={key === 'performance' ? 'Voices' : key} value={filters[key]} onChange={e => update({ [key]: e.target.value })}>
+                      <option value=''>Any</option>
+                      {refinements[key].map(value => <option key={value}>{value}</option>)}
+                    </select>
+                  </label>
+                ))}
+                {user.isAdmin && (
+                  <label className={styles.untagged}>
+                    <input type='checkbox' checked={filters.untagged} onChange={e => update({ untagged: e.target.checked })} />
+                    Uncategorised
+                  </label>
+                )}
+              </div>
+            )}
+            {pagination('Song pages top')}
+            <div className={styles.songlist}>
+              {results.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(song => (
+                <SongRow
+                  key={song.songId}
+                  title={song.title}
+                  artist={artists[song.artistId]?.name ?? ''}
+                  versionCount={song.numMedia}
+                  starred={stars.has(song.songId)}
+                  queued={songStatus.upcoming.has(song.songId) || songStatus.current === song.songId}
+                  canAdd={!!user.roomId}
+                  unavailable='Join room'
+                  onAdd={() => {
+                    dispatch(queueSong(song.songId))
+                    setMessage(`${song.title} added`)
+                  }}
+                  onStar={() => dispatch(toggleSongStarred(song.songId))}
+                  onVersions={() => setVersionSong({ songId: song.songId, title: song.title, artist: artists[song.artistId]?.name ?? '' })}
+                >
+                  <p>{formatDuration(song.duration)}</p>
+                  <p>{[song.categories?.genre, song.categories?.decade, song.categories?.language, ...song.categories?.collections ?? []].filter(Boolean).join(' · ')}</p>
+                  {user.isAdmin && <button onClick={() => setEditing(song)}>Edit categories</button>}
+                </SongRow>
               ))}
             </div>
-            {options.genre.length === 0 && !library.isLoading && <p className={styles.tip}>A little organisation goes a long way. {user.isAdmin ? 'Use “Edit categories” on a song to add genres, decades and collections.' : 'Your host can add genres, decades and collections.'}</p>}
-            <div className={styles.resultsTop}><div><h2 ref={resultHeading} tabIndex={-1} style={{ scrollMarginTop: headerHeight + 16 }}>{active ? 'Your matches' : 'The songbook'}</h2><p aria-live='polite'>{library.isLoading ? 'Loading library…' : `${results.length.toLocaleString()} songs`}{active && <> · <button onClick={() => update(defaultFilters)}>Clear filters</button></>}</p></div><label>Sort by<select aria-label='Sort by' value={filters.sort} onChange={e => update({ sort: e.target.value })}><option value='popular'>Popular first</option><option value='title'>Song title</option><option value='artist'>Artist</option><option value='duration'>Shortest first</option></select></label></div>
-            {filters.sort === 'popular' && <p className={styles.muted}>Exact title matches first, then host picks, shared favourites and this room’s queue activity.</p>}
-            {user.isAdmin && <label className={styles.untagged}><input type='checkbox' checked={filters.untagged} onChange={e => update({ untagged: e.target.checked })} /> Show uncategorised songs</label>}
-            <p className={styles.srOnly} role='status'>{message}</p>
-            <div className={styles.songlist}>
-              {results.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE).map((song, index) => {
-                const isQueued = songStatus.upcoming.has(song.songId) || songStatus.current === song.songId
-                return <article key={song.songId} className={styles.song} aria-label={`${song.title} by ${artists[song.artistId]?.name ?? ''}`}>
-                  <div className={styles.songNumber}>{String(safePage * PAGE_SIZE + index + 1).padStart(2, '0')}</div>
-                  <div className={styles.songInfo}><h3>{song.title}</h3><p>{artists[song.artistId]?.name}</p><div className={styles.tags}>{[song.categories?.genre, song.categories?.decade, song.categories?.language, song.categories?.performance === 'Duet' ? 'Duet' : '', ...song.categories?.collections ?? []].filter(Boolean).map((tag, i) => <span key={`${tag}-${i}`}>{tag}</span>)}</div>{user.isAdmin && <button className={styles.edit} onClick={() => setEditing(song)}>Edit categories</button>}</div>
-                  {song.numMedia > 1 && <button className={styles.versions} onClick={() => setVersionSong({ songId: song.songId, title: song.title, artist: artists[song.artistId]?.name ?? '' })} aria-label={`Choose version of ${song.title}`}>Versions ({song.numMedia})</button>}
-                  <span className={styles.duration}>{formatDuration(song.duration)}</span>
-                  <button className={styles.star} aria-pressed={stars.has(song.songId)} aria-label={`${stars.has(song.songId) ? 'Unfavourite' : 'Favourite'} ${song.title}`} onClick={() => dispatch(toggleSongStarred(song.songId))}>{stars.has(song.songId) ? '★' : '☆'}</button>
-                  <button className={styles.add} disabled={isQueued || !user.roomId} onClick={() => { dispatch(queueSong(song.songId)); setMessage(`${song.title} added to your queue`) }} aria-label={`Add ${song.title} to queue`}>{isQueued ? '✓ Queued' : '+ Add to queue'}</button>
-                </article>
-              })}
-            </div>
-            {!library.isLoading && results.length === 0 && <div className={styles.empty}><h3>{allSongs.length ? 'No songs found' : 'Your songbook is waiting'}</h3><p>{allSongs.length ? 'Try a different search or clear a category.' : 'Add a local media folder in Account to start your collection.'}</p>{allSongs.length > 0 ? <button onClick={() => update(defaultFilters)}>Clear filters</button> : user.isAdmin && <Link to='/account'>Open account settings</Link>}</div>}
-            {!user.roomId && <p className={styles.tip}><Link to='/account'>Join a room</Link> to add songs to the queue.</p>}
-            {pages > 1 && <nav className={styles.pagination} aria-label='Song pages'><button disabled={safePage === 0} onClick={() => { setPage(safePage - 1); container.current?.scrollTo(0, 0) }}>← Previous</button><span>Page {safePage + 1} of {pages}</span><button disabled={safePage + 1 >= pages} onClick={() => { setPage(safePage + 1); container.current?.scrollTo(0, 0) }}>Next →</button></nav>}
-          </section>
-          <aside className={styles.queuePanel} aria-label='Queue preview'>
-            <div className={styles.queueHeading}><h2>Tonight’s queue</h2><span>{upcoming.length}</span></div>
-            <p className={styles.muted}>A fair turn for every singer.</p>
-            <div className={styles.now}><p className={styles.eyebrow}>{current ? status.isPlaying ? 'NOW SINGING' : 'READY TO SING' : 'THE STAGE IS YOURS'}</p><div className={styles.record} aria-hidden='true'>♫</div><h3>{current ? songs.entities[current.songId]?.title : 'Pick your first song'}</h3><p>{current ? current.userDisplayName : 'Add a song and start the night.'}</p>{current && (user.isAdmin || current.userId === user.userId) && <button className={styles.queueAction} onClick={() => { if (confirm('Skip the current song and play the next one?')) dispatch(requestPlayNext()) }}>Skip to next →</button>}</div>
-            <h3 className={styles.upNextTitle}>UP NEXT</h3>
-            {upcoming.slice(0, 4).map((item, i) => <div key={item.queueId} className={styles.miniSong}><span>{i + 1}</span><div><strong>{songs.entities[item.songId]?.title}</strong><small>{item.userDisplayName}</small>{item.versionLabel && <small>Version: {item.versionLabel}</small>}</div>{(user.isAdmin || item.userId === user.userId) && <button aria-label={`Remove ${songs.entities[item.songId]?.title} from queue`} onClick={() => { if (confirm('Remove this song from the queue?')) dispatch(removeItem({ queueId: item.queueId })) }}>Remove</button>}</div>)}
-            {!upcoming.length && <p className={styles.muted}>No songs waiting yet.</p>}
-            <Link className={styles.viewQueue} to='/queue'>Open full queue →</Link>
-            <p className={styles.queueHelp}>{user.isAdmin ? 'Host controls: skip the current song or remove any upcoming song.' : 'You can remove your upcoming songs and skip your own current song. The host controls the rest.'}</p>
-          </aside>
-        </div>
+            {!library.isLoading && !results.length && (
+              <div className={styles.empty}>
+                <h2>No songs found</h2>
+                <button onClick={() => update(defaultFilters, 'cards')}>All categories</button>
+              </div>
+            )}
+            {pagination('Song pages bottom')}
+          </>
+        )}
+        <p className={styles.srOnly} role='status'>{message}</p>
+        {editing && <CategoryEditor key={editing.songId} song={editing} onClose={() => setEditing(null)} />}
+        {versionSong && (
+          <SongVersions
+            key={versionSong.songId}
+            song={versionSong}
+            canQueue={!!user.roomId && !songStatus.upcoming.has(versionSong.songId) && songStatus.current !== versionSong.songId}
+            unavailableReason={!user.roomId ? 'Join a room to add this song.' : 'This song is already queued.'}
+            onClose={() => setVersionSong(null)}
+            onQueue={(mediaId) => {
+              dispatch(queueSong(versionSong.songId, mediaId))
+              setMessage(`${versionSong.title} added with your selected version`)
+              setVersionSong(null)
+            }}
+          />
+        )}
       </div>
-      {editing && <CategoryEditor key={editing.songId} song={editing} onClose={() => setEditing(null)} />}
-      {versionSong && <SongVersions key={versionSong.songId} song={versionSong} canQueue={!!user.roomId && !songStatus.upcoming.has(versionSong.songId) && songStatus.current !== versionSong.songId} unavailableReason={!user.roomId ? 'Join a room to add this song to the queue.' : 'This song is already queued.'} onClose={() => setVersionSong(null)} onQueue={mediaId => { dispatch(queueSong(versionSong.songId, mediaId)); setMessage(`Adding ${versionSong.title} with your selected version`); setVersionSong(null) }} />}
     </main>
   )
 }

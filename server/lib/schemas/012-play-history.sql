@@ -1,0 +1,12 @@
+-- Up
+ALTER TABLE queue ADD COLUMN playedAt INTEGER;
+ALTER TABLE queue ADD COLUMN completedAt INTEGER;
+CREATE TABLE songPlayCounts (
+  songId INTEGER PRIMARY KEY REFERENCES songs(songId) ON DELETE CASCADE,
+  plays INTEGER NOT NULL DEFAULT 0
+);
+
+-- Down
+DROP TABLE songPlayCounts;
+ALTER TABLE queue DROP COLUMN completedAt;
+ALTER TABLE queue DROP COLUMN playedAt;

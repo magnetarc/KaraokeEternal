@@ -1,7 +1,7 @@
 name: Modern container
 on:
   push:
-    branches: [modern-browser]
+    branches: [modern-browser, party-usability]
   workflow_dispatch:
 permissions:
   contents: read

@@ -2,6 +2,7 @@ import React from 'react'
 import CDGraphics from 'cdgraphics'
 import HttpApi from 'lib/HttpApi'
 import styles from './CDGPlayer.css'
+import MediaCompletion from 'lib/MediaCompletion'
 
 const api = new HttpApi('media')
 const BACKDROP_PADDING = 10 // px at 1:1 scale
@@ -35,6 +36,7 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
   frameId: number | null = null
   lastBitmap: ImageBitmap | null = null
   loadToken = 0
+  completion: MediaCompletion | null = null
   supportsFilters = CSS.supports('backdrop-filter', 'blur(10px) brightness(100%) saturate(100%)') || CSS.supports('-webkit-backdrop-filter', 'blur(10px) brightness(100%) saturate(100%)')
 
   state = {
@@ -44,6 +46,7 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
 
   componentDidMount () {
     this.canvasCtx = this.canvas.current.getContext('2d')
+    this.completion = new MediaCompletion(this.audio.current, this.handleEnded)
     this.props.onAudioElement(this.audio.current)
     this.updateSources()
   }
@@ -56,7 +59,10 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
     }
 
     if (prevProps.mediaReplayKey !== this.props.mediaReplayKey) {
+      this.completion.reset()
       this.audio.current.currentTime = 0
+      this.completion.start()
+      this.updateIsPlaying()
       return
     }
 
@@ -72,7 +78,11 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
   }
 
   componentWillUnmount () {
+    ++this.loadToken
+    this.completion?.destroy()
+    this.audio.current?.pause()
     this.stopCDG()
+    this.lastBitmap?.close()
   }
 
   render () {
@@ -118,7 +128,7 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
         <audio
           preload='auto'
           onCanPlayThrough={this.updateIsPlaying}
-          onEnded={this.handleEnded}
+          onCanPlay={this.updateIsPlaying}
           onError={this.handleError}
           onPlay={this.handlePlay}
           onTimeUpdate={this.handleTimeUpdate}
@@ -129,6 +139,9 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
   }
 
   updateSources = async () => {
+    const token = ++this.loadToken
+    this.completion?.reset()
+    this.audio.current?.pause()
     this.stopCDG()
     this.props.onLoad() // loading includes the .cdg fetch, before the audio's loadstart
 
@@ -136,7 +149,6 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
     if (!this.props.mediaSrc) return
 
     // two rapid song changes would otherwise race, with the slower .cdg fetch winning
-    const token = ++this.loadToken
 
     // load .cdg file
     try {
@@ -149,6 +161,7 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
       this.cdg = new CDGraphics(buffer)
       this.audio.current.src = this.props.mediaSrc
       this.audio.current.load()
+      this.completion.start()
       return
     } catch (err) {
       if (token === this.loadToken) this.props.onError(err.message)
@@ -160,7 +173,7 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
 
     if (this.props.isPlaying) {
       this.audio.current.play()
-        .catch(err => this.props.onError(err.message))
+        .catch((err) => { if (err.name !== 'AbortError' && this.props.isPlaying) this.props.onError(err.message) })
     } else {
       this.audio.current.pause()
       this.stopCDG()
@@ -171,8 +184,8 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
   * <audio> event handlers
   */
   handleEnded = () => {
-    this.props.onEnd()
     this.stopCDG()
+    this.props.onEnd()
   }
 
   handleError = (el: React.SyntheticEvent<HTMLAudioElement>) => {
@@ -207,8 +220,9 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
   }
 
   startCDG = () => {
+    if (!this.audio.current || !this.cdg) return
     this.frameId = requestAnimationFrame(this.startCDG)
-    if (!this.audio.current) return
+    const token = this.loadToken
 
     // render at the audible timeline (pitch shifting delays audio behind currentTime)
     const audibleTime = Math.max(0, this.audio.current.currentTime - this.props.audioLatency)
@@ -227,6 +241,11 @@ class CDGPlayer extends React.Component<CDGPlayerProps> {
 
     createImageBitmap(frame.imageData)
       .then((bitmap) => {
+        if (token !== this.loadToken || !this.canvas.current) {
+          bitmap.close()
+          return
+        }
+        this.lastBitmap?.close()
         this.lastBitmap = bitmap // cache for re-painting if canvas size changes
         this.paintCDG(bitmap)
         return

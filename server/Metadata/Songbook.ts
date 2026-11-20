@@ -21,6 +21,7 @@ export class Songbook {
     this.cachedStats = { version, value }
     return value
   }
+
   options (): SongbookOptions {
     const version = this.version()
     if (this.cachedOptions?.version === version) return this.cachedOptions.value
@@ -37,14 +38,19 @@ export class Songbook {
     this.cachedOptions = { version, value }
     return value
   }
-  list (input: Partial<SongbookFilters>, userId: number, roomId: number | null): SongbookListing {
+
+  list (input: Partial<SongbookFilters>, userId: number): SongbookListing {
     const filters = { ...songbookDefaults, ...input }
     const query = String(filters.query).slice(0, 200).trim()
     const offset = Math.max(0, Math.min(1000000, Math.floor(Number(filters.offset) || 0)))
-    const conditions: string[] = []; const params: unknown[] = []
+    const conditions: string[] = []
+    const params: unknown[] = []
     if (query) {
       const match = fullTextQuery(query)
-      if (match) { conditions.push('b.entryId IN (SELECT rowid FROM catalogueSearch WHERE catalogueSearch MATCH ?)'); params.push(match) } else conditions.push('0')
+      if (match) {
+        conditions.push('b.entryId IN (SELECT rowid FROM catalogueSearch WHERE catalogueSearch MATCH ?)')
+        params.push(match)
+      } else conditions.push('0')
     }
     const category = (key: string, plural: string, value: string) => {
       if (!value) return
@@ -53,13 +59,25 @@ export class Songbook {
     }
     category('genre', 'genres', filters.genre)
     category('language', 'languages', filters.language)
-    if (filters.decade) { conditions.push("json_extract(b.categories,'$.decade')=?"); params.push(String(filters.decade).slice(0, 40)) }
-    if (filters.performance) { conditions.push("json_extract(b.categories,'$.performance')=?"); params.push(String(filters.performance).slice(0, 40)) }
-    if (filters.collection) { conditions.push("EXISTS(SELECT 1 FROM json_each(b.categories,'$.collections') v WHERE v.value=?)"); params.push(String(filters.collection).slice(0, 40)) }
+    if (filters.decade) {
+      conditions.push('json_extract(b.categories,\'$.decade\')=?')
+      params.push(String(filters.decade).slice(0, 40))
+    }
+    if (filters.performance) {
+      conditions.push('json_extract(b.categories,\'$.performance\')=?')
+      params.push(String(filters.performance).slice(0, 40))
+    }
+    if (filters.collection) {
+      conditions.push('EXISTS(SELECT 1 FROM json_each(b.categories,\'$.collections\') v WHERE v.value=?)')
+      params.push(String(filters.collection).slice(0, 40))
+    }
     const starred = '(EXISTS(SELECT 1 FROM catalogueStars cs WHERE cs.entryId=b.entryId AND cs.userId=?) OR EXISTS(SELECT 1 FROM songStars ss WHERE ss.songId=b.librarySongId AND ss.userId=?))'
-    if (filters.favourites) { conditions.push(starred); params.push(userId, userId) }
+    if (filters.favourites) {
+      conditions.push(starred)
+      params.push(userId, userId)
+    }
     if (filters.available) conditions.push('b.available=1')
-    if (filters.untagged) conditions.push("COALESCE(json_extract(b.categories,'$.genre'),'')=''")
+    if (filters.untagged) conditions.push('COALESCE(json_extract(b.categories,\'$.genre\'),\'\')=\'\'')
     const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : ''
     const stats = this.stats()
     const total = conditions.length ? this.sql.get<{ n: number }>('SELECT COUNT(*) AS n FROM catalogueBrowse b' + where, params).n : stats.total
@@ -68,15 +86,15 @@ export class Songbook {
     if (filters.sort === 'artist') order = 'b.artist COLLATE NOCASE,b.title COLLATE NOCASE,b.entryId'
     if (filters.sort === 'popular') {
       const escaped = query.toLocaleLowerCase().replace(/[!%_]/g, '!$&')
-      const relevance = query ? "CASE WHEN lower(b.title)=? THEN 0 WHEN lower(b.title) LIKE ? ESCAPE '!' THEN 1 WHEN lower(b.title) LIKE ? ESCAPE '!' THEN 2 ELSE 3 END," : ''
+      const relevance = query ? 'CASE WHEN lower(b.title)=? THEN 0 WHEN lower(b.title) LIKE ? ESCAPE \'!\' THEN 1 WHEN lower(b.title) LIKE ? ESCAPE \'!\' THEN 2 ELSE 3 END,' : ''
       if (query) orderParams.push(query.toLocaleLowerCase(), escaped + '%', '%' + escaped + '%')
-      const score = `(b.popularity*20 + 5*(SELECT COUNT(DISTINCT userId) FROM (SELECT userId FROM catalogueStars WHERE entryId=b.entryId UNION SELECT userId FROM songStars WHERE songId=b.librarySongId)) + 2*(SELECT COUNT(*) FROM queue WHERE songId=b.librarySongId AND roomId=?))`
+      const score = `(b.popularity*20 + 5*(SELECT COUNT(DISTINCT userId) FROM (SELECT userId FROM catalogueStars WHERE entryId=b.entryId UNION SELECT userId FROM songStars WHERE songId=b.librarySongId)) + 4*COALESCE((SELECT MIN(plays,20) FROM songPlayCounts WHERE songId=b.librarySongId),0))`
       order = relevance + 'b.featured DESC,' + score + ' DESC,' + order
-      orderParams.push(roomId)
     }
     const rows = this.sql.all<Omit<SongbookEntry, 'categories'> & { categories: string }>(`SELECT b.*,${starred} AS starred FROM catalogueBrowse b${where} ORDER BY ${order} LIMIT 40 OFFSET ?`, [userId, userId, ...params, ...orderParams, offset])
     return { entries: rows.map(row => ({ ...row, categories: { ...emptyCategories, ...JSON.parse(row.categories) }, starred: !!row.starred, available: !!row.available, featured: !!row.featured })), total, offset, limit: 40, stats }
   }
+
   setStar (entryId: number, userId: number, starred: boolean) {
     const entry = this.sql.get<{ librarySongId: number | null }>('SELECT librarySongId FROM catalogueEntries WHERE entryId=?', [entryId])
     if (!entry) throw new Error('Songbook entry not found')

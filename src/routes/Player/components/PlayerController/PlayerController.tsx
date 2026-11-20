@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react'
+import React, { useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import { useAppDispatch, useAppSelector } from 'store/hooks'
 import Player from '../Player/Player'
 import PlayerTextOverlay from '../PlayerTextOverlay/PlayerTextOverlay'
@@ -21,7 +21,15 @@ const PlayerController = (props: PlayerControllerProps) => {
   const prefs = useAppSelector(state => state.prefs)
   const roomPrefs = useAppSelector(getRoomPrefs)
   const queueItem = queue.entities[player.queueId]
-  const nextQueueItem = queue.entities[queue.result[queue.result.indexOf(player.queueId) + 1]]
+  const played = new Set<number>(JSON.parse(player.historyJSON))
+  for (const id of queue.result) if (queue.entities[id].playedAt) played.add(id)
+  const nextQueueItem = queue.entities[queue.result.find(id => id !== player.queueId && !played.has(id))]
+  const playbackKey = `${player.queueId}:${queueItem?.mediaId}:${player._lastReplayTime}`
+  const activePlaybackRef = useRef(playbackKey)
+  useLayoutEffect(() => {
+    activePlaybackRef.current = playbackKey
+  }, [playbackKey])
+  const completedPlaybackRef = useRef('')
 
   const { mediaSrc, rgTrackGain, rgTrackPeak } = useMediaSource({
     mediaId: queueItem ? queueItem.mediaId : null,
@@ -46,11 +54,7 @@ const PlayerController = (props: PlayerControllerProps) => {
 
     const history = JSON.parse(player.historyJSON)
 
-    if (queueId !== player.queueId) {
-      // reset history up to and including the replaying queueId
-      const idx = history.lastIndexOf(queueId)
-      if (idx !== -1) history.splice(idx)
-    }
+    if (queueId !== player.queueId && queueItem && !history.includes(player.queueId)) history.push(player.queueId)
 
     handleStatus({
       historyJSON: JSON.stringify(history),
@@ -60,12 +64,13 @@ const PlayerController = (props: PlayerControllerProps) => {
       mediaType: nextItem.mediaType,
       position: 0,
       queueId: nextItem.queueId,
+      mediaId: nextItem.mediaId,
       nextUserId: null,
       _isReplayingQueueId: null,
     })
-  }, [handleStatus, player.historyJSON, player.queueId, queue.entities])
+  }, [handleStatus, player.historyJSON, player.queueId, queue.entities, queueItem])
 
-  const handleLoadNext = useCallback(() => {
+  const handleLoadNext = useCallback((completed = false) => {
     const history = JSON.parse(player.historyJSON)
 
     // add current item to history (once)
@@ -79,6 +84,7 @@ const PlayerController = (props: PlayerControllerProps) => {
         historyJSON: JSON.stringify(history),
         isAtQueueEnd: true,
         mediaType: null,
+        ...(completed && queueItem ? { completedQueueId: queueItem.queueId } : {}),
         _isPlayingNext: false,
       })
 
@@ -94,10 +100,19 @@ const PlayerController = (props: PlayerControllerProps) => {
       mediaType: nextQueueItem.mediaType,
       position: 0,
       queueId: nextQueueItem.queueId,
+      mediaId: nextQueueItem.mediaId,
+      ...(completed && queueItem ? { completedQueueId: queueItem.queueId } : {}),
       nextUserId: null,
       _isPlayingNext: false,
     })
   }, [handleStatus, nextQueueItem, player.historyJSON, queueItem])
+
+  const handleEnd = () => {
+    if (activePlaybackRef.current !== playbackKey || completedPlaybackRef.current === playbackKey) return
+    completedPlaybackRef.current = playbackKey
+    console.info('[Playback] completed', { queueId: player.queueId, mediaId: queueItem?.mediaId })
+    handleLoadNext(true)
+  }
 
   // "lock in" the next user that isn't the currently up user, if possible
   useEffect(() => {
@@ -178,7 +193,7 @@ const PlayerController = (props: PlayerControllerProps) => {
         mediaSrc={mediaSrc}
         mediaType={queueItem ? queueItem.mediaType : null}
         mp4Alpha={player.mp4Alpha}
-        onEnd={handleLoadNext}
+        onEnd={handleEnd}
         onError={handleError}
         onLoad={handleLoad}
         onPlay={handlePlay}

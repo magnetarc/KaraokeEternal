@@ -7,7 +7,7 @@ const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u0
 export type Popularity = { songs?: Record<number, number>, artists?: Record<number, number>, queued?: Record<number, number> }
 export function browseSongs (songs: Song[], artists: Record<number, Artist>, stars: Set<number>, filters: BrowseFilters, popularity: Popularity = {}): Song[] {
   const words = normalize(filters.query).trim().split(/\s+/).filter(Boolean)
-  return songs.filter(song => {
+  return songs.filter((song) => {
     const tags = song.categories
     if (filters.favourites && !stars.has(song.songId)) return false
     if (filters.untagged && tags && (tags.genre || tags.language || tags.decade || tags.performance || tags.collections.length)) return false
@@ -26,7 +26,7 @@ export function browseSongs (songs: Song[], artists: Record<number, Artist>, sta
       if (text) return text
       const promoted = Number(!!b.categories?.featured) - Number(!!a.categories?.featured)
       if (promoted) return promoted
-      const score = (s: Song) => 5 * (popularity.songs?.[s.songId] ?? 0) + 2 * (popularity.queued?.[s.songId] ?? 0) + (popularity.artists?.[s.artistId] ?? 0)
+      const score = (s: Song) => 20 * (s.recommendation ?? 0) + 8 * Math.log2(1 + (s.completedPlays ?? 0)) + 5 * (popularity.songs?.[s.songId] ?? 0) + (popularity.artists?.[s.artistId] ?? 0)
       const rank = score(b) - score(a)
       if (rank) return rank
     }

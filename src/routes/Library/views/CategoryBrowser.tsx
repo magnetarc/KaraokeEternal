@@ -1,9 +1,8 @@
-import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import Icon from 'components/Icon/Icon'
+import React, { useSyncExternalStore, useId, useRef, useState } from 'react'
 import type { SongbookOptions, SongbookFilters } from 'shared/songbook'
 import styles from './CategoryBrowser.css'
 import { useAppSelector } from 'store/hooks'
-import { categoryArtwork, readArtworkTheme, type ArtworkTheme } from './categoryArtwork'
+import { categoryArtwork, readArtworkTheme } from './categoryArtwork'
 
 export type CategoryMode = 'cards' | 'search'
 type CategoryKey = keyof SongbookOptions
@@ -12,11 +11,9 @@ type Props = {
   options: SongbookOptions
   filters: CategoryFilters
   mode: CategoryMode
-  onModeChange: (mode: CategoryMode) => void
-  onChange: (patch: Partial<CategoryFilters>) => void
+  onChange: (patch: Partial<CategoryFilters>, mode?: CategoryMode) => void
   onResults: () => void
   onSearch: () => void
-  resultsReady: boolean
 }
 
 const groups: { key: CategoryKey, label: string }[] = [
@@ -46,9 +43,9 @@ const paths = {
 type IconName = keyof typeof paths
 type Look = { icon: IconName, tone: string, description: string }
 const looks: Record<string, Look> = {
-  Pop: { icon: 'sparkle', tone: 'pink', description: 'Big hooks. Your moment.' },
-  Rock: { icon: 'guitar', tone: 'orange', description: 'Turn it up and sing out.' },
-  Country: { icon: 'guitar', tone: 'gold', description: 'Stories worth singing.' },
+  'Pop': { icon: 'sparkle', tone: 'pink', description: 'Big hooks. Your moment.' },
+  'Rock': { icon: 'guitar', tone: 'orange', description: 'Turn it up and sing out.' },
+  'Country': { icon: 'guitar', tone: 'gold', description: 'Stories worth singing.' },
   'R&B/Soul': { icon: 'mic', tone: 'purple', description: 'Find your soul.' },
   'Dance/Electronic': { icon: 'headphones', tone: 'teal', description: 'Bring the dance floor.' },
   'Hip-Hop/Rap': { icon: 'mic', tone: 'blue', description: 'Step up to the mic.' },
@@ -58,22 +55,22 @@ const looks: Record<string, Look> = {
   'Film/TV': { icon: 'film', tone: 'blue', description: 'Sing a screen favourite.' },
   'Folk/Acoustic': { icon: 'leaf', tone: 'green', description: 'Keep it close and acoustic.' },
   'Reggae/Ska': { icon: 'record', tone: 'green', description: 'Settle into the rhythm.' },
-  Blues: { icon: 'guitar', tone: 'blue', description: 'Sing it from the heart.' },
-  Metal: { icon: 'bolt', tone: 'orange', description: 'Give it everything.' },
-  Punk: { icon: 'bolt', tone: 'pink', description: 'A little extra attitude.' },
-  Disco: { icon: 'record', tone: 'pink', description: 'Light up the dance floor.' },
-  Funk: { icon: 'record', tone: 'orange', description: 'Find your groove.' },
-  Latin: { icon: 'party', tone: 'orange', description: 'Let the rhythm lead.' },
-  World: { icon: 'globe', tone: 'teal', description: 'A world of songs.' },
-  "Children's": { icon: 'sparkle', tone: 'gold', description: 'For the little superstars.' },
+  'Blues': { icon: 'guitar', tone: 'blue', description: 'Sing it from the heart.' },
+  'Metal': { icon: 'bolt', tone: 'orange', description: 'Give it everything.' },
+  'Punk': { icon: 'bolt', tone: 'pink', description: 'A little extra attitude.' },
+  'Disco': { icon: 'record', tone: 'pink', description: 'Light up the dance floor.' },
+  'Funk': { icon: 'record', tone: 'orange', description: 'Find your groove.' },
+  'Latin': { icon: 'party', tone: 'orange', description: 'Let the rhythm lead.' },
+  'World': { icon: 'globe', tone: 'teal', description: 'A world of songs.' },
+  'Children\'s': { icon: 'sparkle', tone: 'gold', description: 'For the little superstars.' },
   'Easy Listening': { icon: 'headphones', tone: 'teal', description: 'Take it easy.' },
   'Gospel/Christian': { icon: 'mic', tone: 'blue', description: 'Lift your voice.' },
   'Party starters': { icon: 'party', tone: 'orange', description: 'Get the night going.' },
-  Ballads: { icon: 'heart', tone: 'pink', description: 'Put your heart into it.' },
+  'Ballads': { icon: 'heart', tone: 'pink', description: 'Put your heart into it.' },
   'Family favourites': { icon: 'people', tone: 'teal', description: 'Bring everyone together.' },
   'Wedding favourites': { icon: 'rings', tone: 'purple', description: 'For your favourite people.' },
-  Musicals: { icon: 'film', tone: 'purple', description: 'Your show-stopping moment.' },
-  Christmas: { icon: 'tree', tone: 'green', description: 'A little festive spirit.' },
+  'Musicals': { icon: 'film', tone: 'purple', description: 'Your show-stopping moment.' },
+  'Christmas': { icon: 'tree', tone: 'green', description: 'A little festive spirit.' },
   'Irish favourites': { icon: 'leaf', tone: 'green', description: 'A chorus to share.' },
 }
 function lookFor (key: CategoryKey, value: string): Look {
@@ -84,27 +81,28 @@ function CategoryIcon ({ name }: { name: IconName }) {
   return <svg viewBox='0 0 24 24' aria-hidden='true' fill='none' stroke='currentColor' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round'><path d={paths[name]} /></svg>
 }
 
-export default function CategoryBrowser ({ options, filters, mode, onModeChange, onChange, onResults, onSearch, resultsReady }: Props) {
+export default function CategoryBrowser ({ options, filters, mode, onChange, onResults, onSearch }: Props) {
   const id = useId()
   const userId = useAppSelector(state => state.user.userId)
   const preferenceKey = `karaoke.categoryArtwork.v1.${userId}`
-  const [artworkTheme, setArtworkTheme] = useState<ArtworkTheme>(() => readArtworkTheme(preferenceKey))
-  useEffect(() => {
-    setArtworkTheme(readArtworkTheme(preferenceKey))
-    const sync = (event: StorageEvent) => { if (event.key === preferenceKey || event.key === null) setArtworkTheme(readArtworkTheme(preferenceKey)) }
+  const artworkTheme = useSyncExternalStore((callback) => {
+    const sync = (event: StorageEvent) => {
+      if (event.key === preferenceKey || event.key === null) callback()
+    }
     window.addEventListener('storage', sync)
-    return () => window.removeEventListener('storage', sync)
-  }, [preferenceKey])
-  const changeArtwork = (theme: ArtworkTheme) => {
-    setArtworkTheme(theme)
-    try { localStorage.setItem(preferenceKey, theme) } catch { /* The choice still works when browser storage is unavailable. */ }
-  }
+    window.addEventListener('karaoke-artwork', callback)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('karaoke-artwork', callback)
+    }
+  }, () => readArtworkTheme(preferenceKey))
   const [group, setGroup] = useState<CategoryKey>('genre')
   const [expanded, setExpanded] = useState(false)
-  const cardsButton = useRef<HTMLButtonElement>(null)
-  const selection = useRef<HTMLDivElement>(null)
-  const openingCategory = useRef(false)
-  const browse = () => { onModeChange('cards'); requestAnimationFrame(() => { cardsButton.current?.focus({ preventScroll: true }); cardsButton.current?.scrollIntoView({ block: 'start' }) }) }
+  const cardsButtonRef = useRef<HTMLButtonElement>(null)
+  const browse = () => {
+    onChange(resetCategories, 'cards')
+    requestAnimationFrame(() => cardsButtonRef.current?.focus({ preventScroll: true }))
+  }
   const available = groups.filter(item => options[item.key].length > 0)
   const current = available.find(item => item.key === group) ?? available[0]
   const key = current?.key ?? 'genre'
@@ -113,34 +111,81 @@ export default function CategoryBrowser ({ options, filters, mode, onModeChange,
     const rank = (v: string) => priority.includes(v) ? priority.indexOf(v) : priority.length
     return rank(a) - rank(b) || a.localeCompare(b)
   })
-  const selected = groups.filter(item => filters[item.key])
-  useLayoutEffect(() => {
-    if (mode === 'search' && resultsReady && openingCategory.current && selection.current) {
-      selection.current.scrollIntoView({ block: 'start' })
-      openingCategory.current = false
-    }
-  }, [mode, filters.genre, filters.collection, filters.decade, filters.language, filters.performance, resultsReady])
-  return <section className={styles.browser} aria-label='Ways to browse'>
-    <div className={styles.toolbar}><div className={styles.routes} role='group' aria-label='Browse method'>
-      <button type='button' ref={cardsButton} aria-pressed={mode === 'cards'} aria-controls={id} onClick={browse}><Icon icon='NAV_LIBRARY' size={20} />Category cards</button>
-      <button type='button' aria-pressed={mode === 'search'} onClick={() => { onModeChange('search'); onSearch() }}><Icon icon='MAGNIFIER' size={20} />Search &amp; filters</button>
-    </div>{mode === 'cards' && <div className={styles.artworkPicker} role='group' aria-label='Category artwork'><span>Artwork</span><button type='button' aria-pressed={artworkTheme === 'playful'} onClick={() => changeArtwork('playful')}>Playful</button><button type='button' aria-pressed={artworkTheme === 'serious'} onClick={() => changeArtwork('serious')}>Serious</button></div>}</div>
-    {mode === 'cards' && <div id={id} className={styles.panel}>
-      <div className={styles.heading}><div><h2>What are you in the mood for?</h2><p>Pick a category. Find your chorus.</p></div></div>
-      {available.length > 0 && <div className={styles.groups} role='group' aria-label='Category groups'>{available.map(item => <button type='button' key={item.key} aria-pressed={key === item.key} onClick={() => { setGroup(item.key); setExpanded(false) }}>{item.label}</button>)}</div>}
-      <div className={styles.grid} role='group' aria-label={current?.label ?? 'Categories'}>
-        {(expanded ? values : values.slice(0, 8)).map(value => {
-          const look = lookFor(key, value)
-          const art = categoryArtwork(artworkTheme, key, value)
-          return <button type='button' key={value} className={`${styles.card} ${styles[look.tone]} ${art ? styles.imageCard : ''}`} aria-label={`Browse ${value}`} aria-pressed={filters[key] === value} onClick={() => { openingCategory.current = true; onChange({ ...resetCategories, [key]: value }); onModeChange('search'); onResults() }}>
-            {art ? <span className={styles.artwork} aria-hidden='true' data-artwork-theme={artworkTheme}><img src={art.src} alt='' loading='lazy' decoding='async' draggable={false} style={{ left: `${-art.column * 100}%`, top: `${-art.row * 100}%` }} /></span> : <><span className={styles.art}><CategoryIcon name={look.icon} /></span><span className={styles.cardIcon}><CategoryIcon name={look.icon} /></span></>}
-            <strong>{value}</strong><small>{look.description}</small>
+  if (mode !== 'cards') return null
+  return (
+    <section className={styles.browser} aria-label='Ways to browse'>
+      <div className={styles.toolbar}>
+        <div className={styles.routes} role='group' aria-label='Browse method'>
+          <button type='button' ref={cardsButtonRef} aria-pressed={mode === 'cards'} aria-controls={id} onClick={browse}>All categories</button>
+          <button
+            type='button'
+            aria-pressed={false}
+            onClick={() => {
+              onChange(resetCategories, 'search')
+              onSearch()
+            }}
+          >
+            All songs
           </button>
-        })}
+        </div>
       </div>
-      {values.length > 8 && <button type='button' className={styles.more} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show fewer categories' : `Show all ${values.length} ${current.label.toLocaleLowerCase()}`}</button>}
-      {!available.length && <p className={styles.empty}>Categories appear as songs are labelled. You can search all songs at any time.</p>}
-    </div>}
-    {mode === 'search' && selected.length > 0 && <div ref={selection} className={styles.selection}><div><span>YOU’RE BROWSING</span><strong>{selected.map(item => filters[item.key]).join(' · ')}</strong></div><button type='button' onClick={() => { onChange(resetCategories); browse() }}>All categories</button></div>}
-  </section>
+      {mode === 'cards' && (
+        <div id={id} className={styles.panel}>
+          <div className={styles.heading}>
+            <h2>Categories</h2>
+            {available.length > 1 && (
+              <div className={styles.groups} role='group' aria-label='Category groups'>
+                {available.map(item => (
+                  <button
+                    type='button'
+                    key={item.key}
+                    aria-pressed={key === item.key}
+                    onClick={() => {
+                      setGroup(item.key)
+                      setExpanded(false)
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className={styles.grid} role='group' aria-label={current?.label ?? 'Categories'}>
+            {(expanded ? values : values.slice(0, 8)).map((value) => {
+              const look = lookFor(key, value)
+              const art = categoryArtwork(artworkTheme, key, value)
+              return (
+                <button
+                  type='button'
+                  key={value}
+                  className={`${styles.card} ${styles[look.tone]} ${art ? styles.imageCard : ''}`}
+                  aria-label={`Browse ${value}`}
+                  aria-pressed={filters[key] === value}
+                  onClick={() => {
+                    onChange({ ...resetCategories, [key]: value }, 'search')
+                    onResults()
+                  }}
+                >
+                  {art
+                    ? <span className={styles.artwork} aria-hidden='true' data-artwork-theme={artworkTheme}><img src={art.src} alt='' loading='lazy' decoding='async' draggable={false} style={{ left: `${-art.column * 100}%`, top: `${-art.row * 100}%` }} /></span>
+                    : (
+                        <>
+                          <span className={styles.art}><CategoryIcon name={look.icon} /></span>
+                          <span className={styles.cardIcon}><CategoryIcon name={look.icon} /></span>
+                        </>
+                      )}
+                  <strong>{value}</strong>
+                  <small>{look.description}</small>
+                </button>
+              )
+            })}
+          </div>
+          {values.length > 8 && <button type='button' className={styles.more} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show fewer categories' : `Show all ${values.length} ${current.label.toLocaleLowerCase()}`}</button>}
+          {!available.length && <p className={styles.empty}>Categories appear as songs are labelled. You can search all songs at any time.</p>}
+        </div>
+      )}
+
+    </section>
+  )
 }

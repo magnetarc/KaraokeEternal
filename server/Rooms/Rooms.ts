@@ -233,6 +233,13 @@ class Rooms {
     return false
   }
 
+  static getLastPlayerStatus (io: Server, roomId: number): { queueId: number, isAtQueueEnd: boolean } | undefined {
+    for (const socket of io.of('/').sockets.values()) {
+      const player = socket as typeof socket & { user?: { roomId: number }, _lastPlayerStatus?: { queueId: number, isAtQueueEnd: boolean } }
+      if (player.user?.roomId === roomId && player._lastPlayerStatus) return player._lastPlayerStatus
+    }
+  }
+
   /**
    * Remember that a user has been in a room
    */

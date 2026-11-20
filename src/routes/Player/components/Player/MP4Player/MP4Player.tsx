@@ -1,5 +1,6 @@
 import React from 'react'
 import styles from './MP4Player.css'
+import MediaCompletion from 'lib/MediaCompletion'
 
 interface MP4PlayerProps {
   isPlaying: boolean
@@ -20,8 +21,10 @@ interface MP4PlayerProps {
 
 class MP4Player extends React.Component<MP4PlayerProps> {
   video = React.createRef<HTMLVideoElement>()
+  completion: MediaCompletion | null = null
 
   componentDidMount () {
+    this.completion = new MediaCompletion(this.video.current, () => this.props.onEnd())
     this.props.onAudioElement(this.video.current)
     this.updateSources()
   }
@@ -34,7 +37,10 @@ class MP4Player extends React.Component<MP4PlayerProps> {
     }
 
     if (prevProps.mediaReplayKey !== this.props.mediaReplayKey) {
+      this.completion.reset()
       this.video.current.currentTime = 0
+      this.completion.start()
+      this.updateIsPlaying()
       return
     }
 
@@ -53,7 +59,7 @@ class MP4Player extends React.Component<MP4PlayerProps> {
         width={width}
         height={height}
         onCanPlayThrough={this.updateIsPlaying}
-        onEnded={this.props.onEnd}
+        onCanPlay={this.updateIsPlaying}
         onError={this.handleError}
         onPlay={this.handlePlay}
         onTimeUpdate={this.handleTimeUpdate}
@@ -64,6 +70,8 @@ class MP4Player extends React.Component<MP4PlayerProps> {
 
   updateSources = () => {
     if (!this.video.current) return
+    this.completion?.reset()
+    this.video.current.pause()
     this.props.onLoad()
 
     // src is still being resolved; we'll be called again once it is
@@ -71,6 +79,7 @@ class MP4Player extends React.Component<MP4PlayerProps> {
 
     this.video.current.src = this.props.mediaSrc
     this.video.current.load()
+    this.completion.start()
   }
 
   updateIsPlaying = () => {
@@ -78,7 +87,7 @@ class MP4Player extends React.Component<MP4PlayerProps> {
 
     if (this.props.isPlaying) {
       this.video.current.play()
-        .catch(err => this.props.onError(err.message))
+        .catch((err) => { if (err.name !== 'AbortError' && this.props.isPlaying) this.props.onError(err.message) })
     } else {
       this.video.current.pause()
     }
@@ -93,6 +102,11 @@ class MP4Player extends React.Component<MP4PlayerProps> {
   }
 
   handlePlay = () => this.props.onPlay()
+
+  componentWillUnmount () {
+    this.completion?.destroy()
+    this.video.current?.pause()
+  }
 
   handleTimeUpdate = () => {
     if (!this.video.current) return

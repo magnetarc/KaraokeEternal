@@ -1,75 +1,73 @@
-import React, { useEffect, useRef } from 'react'
-import { useAppSelector } from 'store/hooks'
-import { ensureState } from 'redux-optimistic-ui'
+import React from 'react'
 import { Link } from 'react-router'
+import { useAppDispatch, useAppSelector } from 'store/hooks'
 import getRoundRobinQueue from '../selectors/getRoundRobinQueue'
+import getPlayerHistory from '../selectors/getPlayerHistory'
 import getPendingQueue from '../selectors/getPendingQueue'
+import { removeItem } from '../modules/queue'
 import QueueList from '../components/QueueList/QueueList'
-import Spinner from 'components/Spinner/Spinner'
-import TextOverlay from 'components/TextOverlay/TextOverlay'
 import styles from './QueueView.css'
 
-const QUEUE_ITEM_HEIGHT = 92
-
-const QueueView = () => {
-  const { innerWidth, innerHeight, headerHeight, footerHeight } = useAppSelector(state => state.ui)
-  const isInRoom = useAppSelector(state => !!state.user.roomId)
-  const isAdmin = useAppSelector(state => state.user.isAdmin)
-  const isLoading = useAppSelector(state => ensureState(state.queue).isLoading)
+export default function QueueView () {
+  const { innerHeight, headerHeight, footerHeight } = useAppSelector(state => state.ui)
+  const user = useAppSelector(state => state.user)
+  const status = useAppSelector(state => state.status)
   const queue = useAppSelector(getRoundRobinQueue)
+  const history = useAppSelector(getPlayerHistory)
   const pending = useAppSelector(getPendingQueue)
-  const queueId = useAppSelector(state => state.status.queueId)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // ensure current song is in view on first mount only
-  useEffect(() => {
-    if (containerRef.current) {
-      const i = queue.result.indexOf(queueId)
-      containerRef.current.scrollTop = QUEUE_ITEM_HEIGHT * i
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
+  const dispatch = useAppDispatch()
+  const current = status.isAtQueueEnd ? undefined : status.queueId
+  const past = queue.result.filter(id => history.includes(id) && id !== current)
+  const upcoming = queue.result.filter(id => !history.includes(id) && id !== current)
+  const clear = (ids: number[], message: string) => {
+    if (ids.length && confirm(message)) dispatch(removeItem({ queueId: ids }))
+  }
   return (
-    <div
-      className={styles.container}
-      ref={containerRef}
-      style={{
-        paddingTop: headerHeight,
-        paddingBottom: footerHeight,
-        width: innerWidth,
-        height: innerHeight,
-      }}
-    >
-      {!isInRoom && (
-        <TextOverlay>
-          <h1>Get a Room!</h1>
-          <p>
-            <Link to='/account'>Sign in to a room</Link>
-            {' '}
-            to start queueing songs.
-          </p>
-        </TextOverlay>
-      )}
-
-      {isLoading && <Spinner />}
-
-      {!isLoading && queue.result.length === 0 && pending.length === 0 && (
-        <TextOverlay>
-          <h1>Queue Empty</h1>
-          <p>
-            Tap a song in the
-            {' '}
-            <Link to='/library'>library</Link>
-            {' '}
-            to queue it.
-          </p>
-        </TextOverlay>
-      )}
-
-      {isInRoom && <header className={styles.summary}><h1>Tonight’s queue</h1><p>{isAdmin ? 'Host controls: skip the current song or remove any upcoming song.' : 'Remove your upcoming songs here. Skip is available when your own song is current; the host controls other singers’ songs.'}</p><Link to='/library'>＋ Find another song</Link></header>}
-      <QueueList />
-    </div>
+    <main className={styles.container} style={{ paddingTop: headerHeight + 16, paddingBottom: footerHeight + 24, height: innerHeight }}>
+      <div className={styles.shell}>
+        <header className={styles.summary}>
+          <div>
+            <h1>Tonight’s queue</h1>
+            <p>Everyone gets a turn.</p>
+          </div>
+          <Link to='/library'>Choose songs</Link>
+        </header>
+        {!user.roomId
+          ? (
+              <p>
+                <Link to='/account'>Join a room</Link>
+                {' '}
+                to see its queue.
+              </p>
+            )
+          : (
+              <>
+                <section aria-label='Now playing'>
+                  <h2>Now playing</h2>
+                  <QueueList section='current' />
+                </section>
+                <section aria-label='Up next'>
+                  <div className={styles.sectionHeading}>
+                    <h2>
+                      Up next
+                      <span>{upcoming.length + pending.length}</span>
+                    </h2>
+                    {user.isAdmin && upcoming.length > 0 && <button className={styles.danger} onClick={() => clear(upcoming, 'Remove all upcoming songs? Current playback and history will be kept.')}>Clear upcoming</button>}
+                  </div>
+                  <QueueList section='upcoming' />
+                </section>
+                <details className={styles.history}>
+                  <summary>
+                    History
+                    <span>{past.length}</span>
+                  </summary>
+                  <p>Finished songs are kept here. Add again creates a fresh turn for that version.</p>
+                  {user.isAdmin && past.length > 0 && <button className={styles.danger} onClick={() => clear(past, 'Clear this room’s history? Upcoming songs and playback will be kept.')}>Clear history</button>}
+                  <QueueList section='history' />
+                </details>
+              </>
+            )}
+      </div>
+    </main>
   )
 }
-
-export default QueueView

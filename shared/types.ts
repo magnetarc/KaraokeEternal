@@ -5,6 +5,8 @@ export interface Artist {
 }
 
 export interface Song {
+  recommendation?: number
+  completedPlays?: number
   categories?: import('./catalog.js').SongCategories
   artistId: number
   duration: number
@@ -21,6 +23,7 @@ export interface ParsedSongMeta {
 }
 
 export interface QueueItem {
+  playedAt?: number
   selectedMediaId?: number | null
   versionLabel?: string
   queueId: number

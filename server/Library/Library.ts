@@ -6,6 +6,7 @@ import { Song, Artist } from '../../shared/types.js'
 import Media from '../Media/Media.js'
 import Categories from './Categories.js'
 import { linkCatalogueSong } from '../Metadata/linkSong.js'
+import { emptyCategories } from '../../shared/catalog.js'
 
 const log = getLogger('Library')
 
@@ -43,6 +44,10 @@ class Library {
     }
 
     const categories = Categories.getAll()
+    const recommendations = Object.fromEntries(db.all<{ songId: number, recommendation: number, featured: number }>(
+      'SELECT librarySongId AS songId,MAX(popularity) AS recommendation,MAX(featured) AS featured FROM catalogueBrowse WHERE librarySongId IS NOT NULL GROUP BY librarySongId',
+    ).map(row => [row.songId, row]))
+    const plays = Object.fromEntries(db.all<{ songId: number, plays: number }>('SELECT songId,plays FROM songPlayCounts').map(row => [row.songId, row.plays]))
     // query #1: songs
     {
       const query = sql`
@@ -59,6 +64,10 @@ class Library {
       for (const row of rows) {
         delete row.isPreferred
         row.categories = categories[row.songId]
+        const seed = recommendations[row.songId]
+        if (seed?.recommendation) row.recommendation = seed.recommendation
+        if (seed?.featured && row.categories?.featured === undefined) row.categories = { ...emptyCategories, ...row.categories, featured: true }
+        if (plays[row.songId]) row.completedPlays = plays[row.songId]
         songs.entities[row.songId] = row
         songs.result.push(row.songId)
 

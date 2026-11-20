@@ -1,6 +1,7 @@
 import React from 'react'
 import GLChroma from 'gl-chromakey'
 import styles from './MP4AlphaPlayer.css'
+import MediaCompletion from 'lib/MediaCompletion'
 
 const BACKDROP_PADDING = 10 // px at 1:1 scale
 const BORDER_RADIUS = parseInt(getComputedStyle(document.body).getPropertyValue('--border-radius'))
@@ -27,6 +28,7 @@ class MP4AlphaPlayer extends React.Component<MP4AlphaPlayerProps> {
   canvas = React.createRef<HTMLCanvasElement>()
   frameId: number | null = null
   video = document.createElement('video')
+  completion: MediaCompletion | null = null
   chroma: GLChroma
   supportsFilters = CSS.supports('backdrop-filter', 'blur(10px) brightness(100%) saturate(100%)') || CSS.supports('-webkit-backdrop-filter', 'blur(10px) brightness(100%) saturate(100%)')
   state = {
@@ -37,8 +39,9 @@ class MP4AlphaPlayer extends React.Component<MP4AlphaPlayerProps> {
 
   componentDidMount () {
     this.props.onAudioElement(this.video)
+    this.completion = new MediaCompletion(this.video, this.handleEnded)
+    this.video.oncanplay = this.updateIsPlaying
     this.video.oncanplaythrough = this.updateIsPlaying
-    this.video.onended = this.handleEnded
     this.video.onerror = this.handleError
     this.video.onloadedmetadata = this.handleLoadedMetadata
     this.video.onplay = this.handlePlay
@@ -61,7 +64,10 @@ class MP4AlphaPlayer extends React.Component<MP4AlphaPlayerProps> {
     }
 
     if (prevProps.mediaReplayKey !== this.props.mediaReplayKey) {
+      this.completion.reset()
       this.video.currentTime = 0
+      this.completion.start()
+      this.updateIsPlaying()
       return
     }
 
@@ -84,6 +90,7 @@ class MP4AlphaPlayer extends React.Component<MP4AlphaPlayerProps> {
   }
 
   componentWillUnmount () {
+    this.completion?.destroy()
     this.video.ontimeupdate = null
     this.video.pause()
     this.stopChroma()
@@ -145,6 +152,8 @@ class MP4AlphaPlayer extends React.Component<MP4AlphaPlayerProps> {
   }
 
   updateSources = () => {
+    this.completion?.reset()
+    this.video.pause()
     this.stopChroma()
     this.props.onLoad()
 
@@ -153,12 +162,13 @@ class MP4AlphaPlayer extends React.Component<MP4AlphaPlayerProps> {
 
     this.video.src = this.props.mediaSrc
     this.video.load()
+    this.completion.start()
   }
 
   updateIsPlaying = () => {
     if (this.props.isPlaying) {
       this.video.play()
-        .catch(err => this.props.onError(err.message))
+        .catch((err) => { if (err.name !== 'AbortError' && this.props.isPlaying) this.props.onError(err.message) })
     } else {
       this.video.pause()
       this.stopChroma()
@@ -181,8 +191,8 @@ class MP4AlphaPlayer extends React.Component<MP4AlphaPlayerProps> {
   * <video> event handlers
   */
   handleEnded = () => {
-    this.props.onEnd()
     this.stopChroma()
+    this.props.onEnd()
   }
 
   handleError = () => {

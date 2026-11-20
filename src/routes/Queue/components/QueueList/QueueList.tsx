@@ -1,11 +1,10 @@
 import React from 'react'
 import { useAppDispatch, useAppSelector } from 'store/hooks'
-import { ensureState } from 'redux-optimistic-ui'
-import QueueItem from '../QueueItem/QueueItem'
 import ProviderQueueItem from '../ProviderQueueItem/ProviderQueueItem'
-import QueueListAnimator from '../QueueListAnimator/QueueListAnimator'
 import { formatSeconds } from 'lib/dateTime'
-import { moveItem, removeUpcomingItems } from '../../modules/queue'
+import styles from '../../views/QueueView.css'
+import { requestPlay, requestPause, requestPlayNext, requestReplay } from 'store/modules/status'
+import { queueSong, removeItem, moveItem } from '../../modules/queue'
 import { providerFetchCancel, providerFetchRequest } from '../../../Library/modules/library'
 import getPlayerHistory from '../../selectors/getPlayerHistory'
 import getRoundRobinQueue from '../../selectors/getRoundRobinQueue'
@@ -13,16 +12,14 @@ import getDisplayQueue from '../../selectors/getDisplayQueue'
 import getWaits from '../../selectors/getWaits'
 import type { PendingQueueItem } from '../../selectors/getPendingQueue'
 
-const QueueList = () => {
+const QueueList = ({ section }: { section: 'current' | 'upcoming' | 'history' }) => {
   const artists = useAppSelector(state => state.artists)
-  const { errorMessage, isAtQueueEnd, isErrored, isPlaying, position, queueId } = useAppSelector(state => state.status)
+  const { errorMessage, isAtQueueEnd, isPlaying, queueId } = useAppSelector(state => state.status)
 
   const playerHistory = useAppSelector(getPlayerHistory)
   const queue = useAppSelector(getRoundRobinQueue)
   const rows = useAppSelector(getDisplayQueue)
   const songs = useAppSelector(state => state.songs)
-  const starredSongs = useAppSelector(state => ensureState(state.userStars).starredSongs)
-  const starCounts = useAppSelector(state => state.starCounts)
   const user = useAppSelector(state => state.user)
   const waits = useAppSelector(getWaits)
 
@@ -41,10 +38,6 @@ const QueueList = () => {
     }
 
     dispatch(moveItem({ queueId: qId, prevQueueId: lastPlayed }))
-  }
-
-  const handleRemoveUpcoming = (userId: number) => {
-    dispatch(removeUpcomingItems(userId))
   }
 
   const handleProviderCancel = (providerId: number, itemId: string, userId: number) => {
@@ -73,6 +66,7 @@ const QueueList = () => {
   const items: React.ReactElement[] = []
   for (const row of rows) {
     if (row.kind === 'pending') {
+      if (section !== 'upcoming') continue
       const p = row.item
       const isOwner = p.userId === user.userId
 
@@ -110,41 +104,50 @@ const QueueList = () => {
     // pushed QUEUE_PUSH with a new songId; LIBRARY_PUSH lands a tick later).
     // Skip rendering until the song is available rather than crashing.
     if (!song) continue
-    const duration = song.duration
     const isCurrent = (qId === queueId) && !isAtQueueEnd
     const isUpcoming = qId !== queueId && !playerHistory.includes(qId)
     const isOwner = item.userId === user.userId
 
+    const group = isCurrent ? 'current' : playerHistory.includes(qId) ? 'history' : 'upcoming'
+    if (group !== section) continue
+    const canControl = user.isAdmin || isOwner
     items.push(
-      <QueueItem
-        key={row.key}
-        {...item}
-        artist={artists.entities[song.artistId].name}
-        errorMessage={isCurrent && errorMessage ? errorMessage : ''}
-        isCurrent={isCurrent}
-        isErrored={isCurrent && isErrored}
-        isInfoable={user.isAdmin}
-        isMovable={isUpcoming && (isOwner || user.isAdmin)}
-        isOwner={isOwner}
-        isPlayed={!isUpcoming && !isCurrent}
-        isPlaying={isCurrent && isPlaying}
-        isRemovable={isUpcoming && (isOwner || user.isAdmin)}
-        isReplayable={(!isUpcoming || isCurrent) && user.isAdmin}
-        isSkippable={isCurrent && (isOwner || user.isAdmin)}
-        isStarred={starredSongs.includes(item.songId)}
-        isUpcoming={isUpcoming}
-        pctPlayed={isCurrent ? position / duration * 100 : 0}
-        starCount={starCounts.songs[item.songId] || 0}
-        title={song.title}
-        wait={formatWait(row.key)}
-        // actions
-        onMoveClick={handleMoveClick}
-        onRemoveUpcoming={handleRemoveUpcoming}
-      />,
+      <article key={qId} data-queue-id={qId} className={`${styles.row} ${isCurrent ? styles.current : ''}`} aria-label={`${song.title} by ${artists.entities[song.artistId]?.name ?? ''}`}>
+        <div className={styles.song}>
+          <h3>{song.title}</h3>
+          <p>{artists.entities[song.artistId]?.name}</p>
+          <p className={styles.singer}>
+            {item.userDisplayName}
+            {isOwner ? ' · You' : ''}
+            {isUpcoming && formatWait(row.key) ? ` · ${formatWait(row.key)}` : ''}
+          </p>
+          {item.versionLabel && (
+            <small>{`Version: ${item.versionLabel}`}</small>
+          )}
+          {isCurrent && errorMessage && <p role='alert'>{errorMessage}</p>}
+        </div>
+        <div className={styles.actions}>
+          {isCurrent && canControl && (
+            <>
+              <button onClick={() => dispatch(isPlaying ? requestPause() : requestPlay())}>{isPlaying ? 'Pause' : 'Play'}</button>
+              <button onClick={() => { if (confirm('Skip this song?')) dispatch(requestPlayNext()) }}>Next song</button>
+            </>
+          )}
+          {isCurrent && user.isAdmin && <button onClick={() => dispatch(requestReplay(qId))}>Restart song</button>}
+          {isUpcoming && canControl && (
+            <>
+              <button onClick={() => handleMoveClick(qId)}>Move up</button>
+              <button className={styles.danger} onClick={() => dispatch(removeItem({ queueId: qId }))}>Remove</button>
+            </>
+          )}
+          {group === 'history' && <button onClick={() => dispatch(queueSong(item.songId, item.mediaId))}>Add again</button>}
+          {group === 'history' && user.isAdmin && <button onClick={() => { if (confirm('Play this song now? The current song will stop.')) dispatch(requestReplay(qId)) }}>Play now</button>}
+        </div>
+      </article>,
     )
   }
 
-  return <QueueListAnimator queueItems={items} />
+  return <div className={styles.rows}>{items.length ? items : <p className={styles.empty}>{section === 'current' ? 'Nothing playing right now.' : section === 'upcoming' ? 'No songs waiting. Choose a song to get started.' : 'Finished songs will appear here.'}</p>}</div>
 }
 
 export default QueueList

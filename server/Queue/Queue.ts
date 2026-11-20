@@ -8,6 +8,7 @@ import { versionDisplay } from '../../shared/songVersions.js'
 const log = getLogger('Queue')
 
 interface QueueEntityBuilding {
+  playedAt?: number | null
   queueId: number
   songId: number
   userId: number
@@ -33,7 +34,7 @@ class Queue {
   /**
    * Add a songId to a room's queue
    */
-  static add ({ roomId, songId, userId, mediaId }: { roomId: number, songId: number, userId: number, mediaId?: number }): void {
+  static add ({ roomId, songId, userId, mediaId }: { roomId: number, songId: number, userId: number, mediaId?: number }): number {
     if (!Number.isSafeInteger(songId) || songId <= 0) throw new Error('Invalid song identifier')
     if (mediaId !== undefined && (!Number.isSafeInteger(mediaId) || mediaId <= 0 || !db.get('SELECT 1 FROM media WHERE mediaId=? AND songId=?', [mediaId, songId]))) {
       throw new Error('This version is no longer available for this song. Refresh and choose again.')
@@ -62,6 +63,44 @@ class Queue {
     if (res.changes !== 1) {
       throw new Error('Could not add song to queue')
     }
+    return Number(res.lastID)
+  }
+
+  // Persist completed/skipped rows separately from the active turn order. Pin
+  // the actual media on first playback so history requeues the same version.
+  static recordPlayback (roomId: number, status: { queueId?: number, mediaId?: number, historyJSON?: string, completedQueueId?: number | null }): boolean {
+    let history: number[] = []
+    try {
+      const value = JSON.parse(status.historyJSON ?? '[]')
+      if (Array.isArray(value)) history = value.filter(Number.isSafeInteger)
+    } catch {
+      return false
+    }
+    let changes = 0
+    const now = Date.now()
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      if (Number.isSafeInteger(status.mediaId) && Number.isSafeInteger(status.queueId)) {
+        changes += db.run(`UPDATE queue SET selectedMediaId=? WHERE roomId=? AND queueId=? AND selectedMediaId IS NULL
+          AND EXISTS(SELECT 1 FROM media WHERE mediaId=? AND media.songId=queue.songId)`, [status.mediaId, roomId, status.queueId, status.mediaId]).changes
+      }
+      for (const [index, id] of [...new Set(history)].entries()) {
+        changes += db.run('UPDATE queue SET playedAt=? WHERE roomId=? AND queueId=? AND playedAt IS NULL', [now + index, roomId, id]).changes
+      }
+      if (typeof status.completedQueueId === 'number' && history.includes(status.completedQueueId)) {
+        const result = db.run('UPDATE queue SET completedAt=? WHERE roomId=? AND queueId=? AND completedAt IS NULL', [now, roomId, status.completedQueueId])
+        if (result.changes) {
+          db.run(`INSERT INTO songPlayCounts(songId,plays) SELECT songId,1 FROM queue WHERE queueId=? AND roomId=?
+            ON CONFLICT(songId) DO UPDATE SET plays=plays+1`, [status.completedQueueId, roomId])
+          changes += result.changes
+        }
+      }
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
+    return changes > 0
   }
 
   /**
@@ -79,7 +118,7 @@ class Queue {
     // removed (e.g. mid-scan) still anchor the prevQueueId chain; they're
     // kept out of the payload below
     const query = sql`
-      SELECT queueId, queue.songId, queue.userId, prevQueueId, queue.selectedMediaId,
+      SELECT queueId, queue.songId, queue.userId, prevQueueId, queue.selectedMediaId, queue.playedAt,
         media.mediaId, media.relPath, media.pitch, userPitches.pitch AS userPitch,
         media.rgTrackGain, media.rgTrackPeak,
         users.name AS userDisplayName, users.dateUpdated AS userDateUpdated,
@@ -117,6 +156,7 @@ class Queue {
       pathData: string | null
       isPreferred: number | null
       selectedMediaId: number | null
+      playedAt: number | null
     }>(String(query), query.parameters)
 
     for (const row of rows) {
@@ -144,6 +184,7 @@ class Queue {
       const pathPrefs = pathData.get(pathId)?.prefs
 
       entities[row.queueId] = row
+      if (row.playedAt === null) delete entities[row.queueId].playedAt
       entities[row.queueId].mediaType = this.getType(relPath)
       entities[row.queueId].isVideoKeyingEnabled = !!pathPrefs?.isVideoKeyingEnabled
       if (row.selectedMediaId !== null) entities[row.queueId].versionLabel = versionDisplay(relPath).label

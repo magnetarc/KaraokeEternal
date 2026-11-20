@@ -8,6 +8,12 @@ const songs: Song[] = [
   { artistId: 1, songId: 2, title: 'Another Dawn', duration: 120, numMedia: 1 },
 ]
 describe('modern song browser', () => {
+  it('seeds category recommendations before history exists and learns from completed plays', () => {
+    const seeded = [{ ...songs[0], title: 'Zulu', recommendation: 3 }, { ...songs[1], title: 'Alpha', recommendation: 0 }]
+    expect(browseSongs(seeded, artists, new Set(), defaultFilters).map(s => s.title)).toEqual(['Zulu', 'Alpha'])
+    const learned = seeded.map(s => ({ ...s, recommendation: 1, completedPlays: s.title === 'Zulu' ? 4 : 0 }))
+    expect(browseSongs(learned, artists, new Set(), defaultFilters).map(s => s.title)).toEqual(['Zulu', 'Alpha'])
+  })
   it('searches artist and title words together, ignoring accents and casing', () => {
     expect(browseSongs(songs, artists, new Set(), { ...defaultFilters, query: 'BEYONCE night' }).map(s => s.songId)).toEqual([1])
   })

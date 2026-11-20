@@ -8,6 +8,7 @@ import Account from '../../components/Account/Account'
 import Prefs from '../../components/Prefs/Prefs'
 import Rooms from '../../components/Rooms/Rooms'
 import Users from '../../components/Users/Users'
+import Appearance from '../../components/Appearance'
 
 const SignedInView = () => {
   const { isAdmin } = useAppSelector(state => state.user)
@@ -36,6 +37,8 @@ const SignedInView = () => {
         && <Prefs />}
 
       <Account />
+
+      <Appearance />
 
       <About />
     </>

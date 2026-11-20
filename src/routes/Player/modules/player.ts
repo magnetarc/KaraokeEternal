@@ -129,6 +129,8 @@ export function playerLeave (): AppThunk {
 // Reducer
 // ------------------------------------
 export interface PlayerState {
+  mediaId: number | null
+  completedQueueId: number | null
   cdgAlpha: number
   cdgSize: number
   errorMessage: string
@@ -156,6 +158,8 @@ export interface PlayerState {
 }
 
 const initialState: PlayerState = {
+  mediaId: null,
+  completedQueueId: null,
   cdgAlpha: 0.5,
   cdgSize: 0.65,
   errorMessage: '',
