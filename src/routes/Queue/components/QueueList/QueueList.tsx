@@ -4,7 +4,7 @@ import ProviderQueueItem from '../ProviderQueueItem/ProviderQueueItem'
 import { formatSeconds } from 'lib/dateTime'
 import styles from '../../views/QueueView.css'
 import { requestPlay, requestPause, requestPlayNext, requestReplay } from 'store/modules/status'
-import { queueSong, removeItem, moveItem } from '../../modules/queue'
+import { queueSong, removeItem, moveItem, reorderItem } from '../../modules/queue'
 import { providerFetchCancel, providerFetchRequest } from '../../../Library/modules/library'
 import getPlayerHistory from '../../selectors/getPlayerHistory'
 import getRoundRobinQueue from '../../selectors/getRoundRobinQueue'
@@ -25,19 +25,18 @@ const QueueList = ({ section }: { section: 'current' | 'upcoming' | 'history' })
 
   // actions
   const dispatch = useAppDispatch()
-  const handleMoveClick = (qId: number) => {
-    // reference user's last-played item as the new prevQueueId
-    const userId = queue.entities[qId].userId
-    let lastPlayed = queueId // default in case user has no played items
-
-    for (let i = queue.result.indexOf(queueId); i >= 0; i--) {
-      if (queue.entities[queue.result[i]].userId === userId) {
-        lastPlayed = queue.result[i]
-        break
-      }
+  const upcoming = queue.result.filter(id => id !== queueId && !playerHistory.includes(id))
+  const handleMove = (id: number, direction: 'up' | 'down' | 'top') => {
+    const owner = queue.entities[id].userId
+    const order = user.isAdmin ? upcoming : upcoming.filter(qId => queue.entities[qId].userId === owner)
+    const index = order.indexOf(id)
+    if (index < 0 || (direction === 'up' && index === 0) || (direction === 'down' && index === order.length - 1)) return
+    const after = direction === 'top' ? null : direction === 'down' ? order[index + 1] : order[index - 2] ?? null
+    if (user.isAdmin) {
+      dispatch(reorderItem({ queueId: id, afterQueueId: after }))
+    } else {
+      dispatch(moveItem({ queueId: id, swapQueueId: order[index + (direction === 'up' ? -1 : 1)] }))
     }
-
-    dispatch(moveItem({ queueId: qId, prevQueueId: lastPlayed }))
   }
 
   const handleProviderCancel = (providerId: number, itemId: string, userId: number) => {
@@ -111,6 +110,9 @@ const QueueList = ({ section }: { section: 'current' | 'upcoming' | 'history' })
     const group = isCurrent ? 'current' : playerHistory.includes(qId) ? 'history' : 'upcoming'
     if (group !== section) continue
     const canControl = user.isAdmin || isOwner
+    const moveOrder = user.isAdmin ? upcoming : upcoming.filter(id => queue.entities[id].userId === item.userId)
+    const moveIndex = moveOrder.indexOf(qId)
+
     items.push(
       <article key={qId} data-queue-id={qId} className={`${styles.row} ${isCurrent ? styles.current : ''}`} aria-label={`${song.title} by ${artists.entities[song.artistId]?.name ?? ''}`}>
         <div className={styles.song}>
@@ -136,8 +138,25 @@ const QueueList = ({ section }: { section: 'current' | 'upcoming' | 'history' })
           {isCurrent && user.isAdmin && <button onClick={() => dispatch(requestReplay(qId))}>Restart song</button>}
           {isUpcoming && canControl && (
             <>
-              <button onClick={() => handleMoveClick(qId)}>Move up</button>
+              <button className={styles.moveArrow} aria-label='Move up' title={user.isAdmin ? 'Move up' : 'Move up in your songs'} disabled={moveIndex <= 0} onClick={() => handleMove(qId, 'up')}>↑</button>
+              <button className={styles.moveArrow} aria-label='Move down' title={user.isAdmin ? 'Move down' : 'Move down in your songs'} disabled={moveIndex < 0 || moveIndex === moveOrder.length - 1} onClick={() => handleMove(qId, 'down')}>↓</button>
               <button className={styles.danger} onClick={() => dispatch(removeItem({ queueId: qId }))}>Remove</button>
+              {user.isAdmin && (
+                <details className={styles.moreMenu}>
+                  <summary aria-label={`More options for ${song.title}`}>⋯</summary>
+                  <div>
+                    <button
+                      disabled={moveIndex <= 0}
+                      onClick={(event) => {
+                        event.currentTarget.closest('details')?.removeAttribute('open')
+                        handleMove(qId, 'top')
+                      }}
+                    >
+                      Move to top
+                    </button>
+                  </div>
+                </details>
+              )}
             </>
           )}
           {group === 'history' && <button onClick={() => dispatch(queueSong(item.songId, item.mediaId))}>Add again</button>}

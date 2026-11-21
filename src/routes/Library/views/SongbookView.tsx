@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { ensureState } from 'redux-optimistic-ui'
 import HttpApi from 'lib/HttpApi'
 import { useAppDispatch, useAppSelector } from 'store/hooks'
-import { queueSong } from 'routes/Queue/modules/queue'
+import { queueSong, reorderItem } from 'routes/Queue/modules/queue'
+import getUpcomingSongItems from 'routes/Queue/selectors/getUpcomingSongItems'
 import useBrowseState from '../useBrowseState'
 import BrowserBar from '../components/BrowserBar'
 import BrowsePagination from '../components/BrowsePagination'
@@ -101,6 +102,7 @@ export default function SongbookView () {
   const user = useAppSelector(s => s.user)
   const { headerHeight, footerHeight, innerHeight } = useAppSelector(s => s.ui)
   const songStatus = useAppSelector(getSongsStatus)
+  const upcomingItems = useAppSelector(getUpcomingSongItems)
   const linkedStars = useAppSelector(s => ensureState(s.userStars).starredSongs)
   const librarySongs = useAppSelector(s => s.songs.entities)
   const [versionSong, setVersionSong] = useState<VersionSong | null>(null)
@@ -274,6 +276,13 @@ export default function SongbookView () {
                       dispatch(queueSong(song.librarySongId))
                       setMessage(`${song.title} added`)
                     }}
+                    onPlayNext={user.isAdmin && user.roomId && song.available && song.librarySongId && !upcomingItems[song.librarySongId]
+                      ? () => {
+                          if ((librarySongs[song.librarySongId]?.numMedia ?? 0) > 1) setVersionSong({ songId: song.librarySongId, title: song.title, artist: song.artist, position: 'next' })
+                          else dispatch(queueSong(song.librarySongId, undefined, 'next'))
+                        }
+                      : undefined}
+                    onMoveTop={user.isAdmin && upcomingItems[song.librarySongId] ? () => dispatch(reorderItem({ queueId: upcomingItems[song.librarySongId], afterQueueId: null })) : undefined}
                     onStar={() => star(song)}
                     onVersions={() => setVersionSong({ songId: song.librarySongId, title: song.title, artist: song.artist })}
                   >
@@ -314,11 +323,11 @@ export default function SongbookView () {
         <SongVersions
           key={versionSong.songId}
           song={versionSong}
-          canQueue={!!user.roomId && !songStatus.upcoming.has(versionSong.songId) && songStatus.current !== versionSong.songId}
+          canQueue={!!user.roomId && !songStatus.upcoming.has(versionSong.songId) && (versionSong.position === 'next' || songStatus.current !== versionSong.songId)}
           unavailableReason={!user.roomId ? 'Join a room to add this song.' : 'This song is already queued.'}
           onClose={() => setVersionSong(null)}
           onQueue={(mediaId) => {
-            dispatch(queueSong(versionSong.songId, mediaId))
+            dispatch(queueSong(versionSong.songId, mediaId, versionSong.position))
             setMessage(`${versionSong.title} added with your selected version`)
             setVersionSong(null)
           }}

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { ensureState } from 'redux-optimistic-ui'
 import getDisplayQueue, { type DisplayRow } from './getDisplayQueue.js'
 import getRoundRobinQueue from './getRoundRobinQueue.js'
 import getWaits from './getWaits.js'
@@ -51,6 +52,13 @@ const label = (row: DisplayRow) => row.kind === 'queue' ? row.queueId : `${row.i
 const labels = (state: RootState) => getDisplayQueue(state).map(label)
 
 describe('getDisplayQueue', () => {
+  it('shows the actual host order across singers and the locked next user', () => {
+    const state = stateWith({ queue: [[1, 1], [2, 1], [3, 2], [4, 3]], queueId: 1, nextUserId: 2, fetches: [fetch('loading', [[4, 0]])] })
+    ensureState(state.queue).moves = [{ queueId: 2, afterQueueId: null }, { queueId: 4, afterQueueId: 2 }]
+    expect(getRoundRobinQueue(state).result).toEqual([1, 2, 4, 3])
+    expect(getDisplayQueue(state).filter(row => row.kind === 'queue').map(row => row.queueId)).toEqual([1, 2, 4, 3])
+    expect(getWaits(state)['2']).toBe(200)
+  })
   it('matches the round-robin queue when nothing is in flight', () => {
     const state = stateWith({ queue: [[1, 1], [2, 1], [3, 2]], queueId: 1 })
     expect(labels(state)).toEqual(getRoundRobinQueue(state).result)

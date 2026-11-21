@@ -22,6 +22,7 @@ export const MEDIA_USER_PITCH_SET = 'server/MEDIA_USER_PITCH_SET'
 // Queue
 export const QUEUE_ADD = 'server/QUEUE_ADD'
 export const QUEUE_MOVE = 'server/QUEUE_MOVE'
+export const QUEUE_REORDER = 'server/QUEUE_REORDER'
 export const QUEUE_PUSH = 'queue/PUSH'
 export const QUEUE_REMOVE = 'server/QUEUE_REMOVE'
 

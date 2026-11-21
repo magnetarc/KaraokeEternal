@@ -1,17 +1,19 @@
 import Queue from './Queue.js'
 import Rooms from '../Rooms/Rooms.js'
-import { QUEUE_ADD, QUEUE_MOVE, QUEUE_REMOVE, QUEUE_PUSH } from '../../shared/actionTypes.js'
+import { QUEUE_ADD, QUEUE_MOVE, QUEUE_REORDER, QUEUE_REMOVE, QUEUE_PUSH } from '../../shared/actionTypes.js'
 
 // ------------------------------------
 // Action Handlers
 // ------------------------------------
 const ACTION_HANDLERS = {
   [QUEUE_ADD]: async (sock, { payload }, acknowledge) => {
-    const { songId, mediaId } = payload
+    const { songId, mediaId, position } = payload
 
     try {
       await Rooms.validate(sock.user.roomId, null, { validatePassword: false })
-      Queue.add({ roomId: sock.user.roomId, songId, userId: sock.user.userId, ...(mediaId !== undefined ? { mediaId } : {}) })
+      if (position !== undefined && (position !== 'next' || !sock.user.isAdmin)) throw new Error('Only the host can choose Play next')
+      const queueId = Queue.add({ roomId: sock.user.roomId, songId, userId: sock.user.userId, ...(mediaId !== undefined ? { mediaId } : {}) })
+      if (position === 'next') Queue.reorder(sock.user.roomId, queueId, null)
     } catch (err) {
       return acknowledge({
         type: QUEUE_ADD + '_ERROR',
@@ -28,8 +30,20 @@ const ACTION_HANDLERS = {
       payload: Queue.get(sock.user.roomId),
     })
   },
+  [QUEUE_REORDER]: async (sock, { payload }, acknowledge) => {
+    try {
+      await Rooms.validate(sock.user.roomId, null, { validatePassword: false })
+      if (!sock.user.isAdmin) throw new Error('Only the host can reorder the shared queue')
+      const status = Rooms.getLastPlayerStatus(sock.server, sock.user.roomId)
+      Queue.reorder(sock.user.roomId, payload.queueId, payload.afterQueueId, status?.isAtQueueEnd ? undefined : status?.queueId)
+      acknowledge({ type: QUEUE_REORDER + '_SUCCESS' })
+      sock.server.to(Rooms.prefix(sock.user.roomId)).emit('action', { type: QUEUE_PUSH, payload: Queue.get(sock.user.roomId) })
+    } catch (err) {
+      acknowledge({ type: QUEUE_REORDER + '_ERROR', error: err.message })
+    }
+  },
   [QUEUE_MOVE]: async (sock, { payload }, acknowledge) => {
-    const { queueId, prevQueueId } = payload
+    const { queueId, prevQueueId, swapQueueId } = payload
 
     try {
       await Rooms.validate(sock.user.roomId, null, { validatePassword: false })
@@ -40,18 +54,19 @@ const ACTION_HANDLERS = {
       })
     }
 
-    if (!sock.user.isAdmin && !(Queue.isOwner(sock.user.userId, queueId))) {
+    if (!sock.user.isAdmin && !(Queue.isOwner(sock.user.userId, swapQueueId === undefined ? queueId : [queueId, swapQueueId]))) {
       return acknowledge({
         type: QUEUE_MOVE + '_ERROR',
         error: 'Cannot move another user\'s song',
       })
     }
 
-    Queue.move({
-      prevQueueId,
-      queueId,
-      roomId: sock.user.roomId,
-    })
+    if (swapQueueId !== undefined) {
+      const status = Rooms.getLastPlayerStatus(sock.server, sock.user.roomId)
+      Queue.swap(sock.user.roomId, queueId, swapQueueId, status?.isAtQueueEnd ? undefined : status?.queueId)
+    } else {
+      Queue.move({ prevQueueId, queueId, roomId: sock.user.roomId })
+    }
 
     // success
     acknowledge({ type: QUEUE_MOVE + '_SUCCESS' })

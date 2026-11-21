@@ -4,6 +4,7 @@ import getLogger from '../lib/Log.js'
 import sql from 'sqlate'
 import { QueueItem } from '../../shared/types.js'
 import { versionDisplay } from '../../shared/songVersions.js'
+import type { QueueOrderMove } from '../../shared/queueOrder.js'
 
 const log = getLogger('Queue')
 
@@ -87,6 +88,7 @@ class Queue {
       for (const [index, id] of [...new Set(history)].entries()) {
         changes += db.run('UPDATE queue SET playedAt=? WHERE roomId=? AND queueId=? AND playedAt IS NULL', [now + index, roomId, id]).changes
       }
+      changes += db.run('DELETE FROM queueOrderMoves WHERE roomId=? AND queueId IN (SELECT queueId FROM queue WHERE playedAt IS NOT NULL)', [roomId]).changes
       if (typeof status.completedQueueId === 'number' && history.includes(status.completedQueueId)) {
         const result = db.run('UPDATE queue SET completedAt=? WHERE roomId=? AND queueId=? AND completedAt IS NULL', [now, roomId, status.completedQueueId])
         if (result.changes) {
@@ -106,7 +108,7 @@ class Queue {
   /**
    * Get queued items for a given room
    */
-  static get (roomId: number): { result: number[], entities: Record<number, QueueItem> } {
+  static get (roomId: number): { result: number[], entities: Record<number, QueueItem>, moves?: QueueOrderMove[] } {
     const chain: number[] = []
     const orphaned = new Set<number>()
     const entities: Record<number, QueueEntityBuilding> = {}
@@ -215,7 +217,42 @@ class Queue {
     }
 
     const result = chain.filter(queueId => !orphaned.has(queueId))
-    return { result, entities: entities as unknown as Record<number, QueueItem> }
+    const moves = db.all<QueueOrderMove>('SELECT queueId,afterQueueId FROM queueOrderMoves WHERE roomId=? ORDER BY moveId', [roomId])
+    return { result, entities: entities as unknown as Record<number, QueueItem>, ...(moves.length ? { moves } : {}) }
+  }
+
+  static reorder (roomId: number, queueId: number, afterQueueId: number | null, currentQueueId?: number): void {
+    const pending = (id: number) => Number.isSafeInteger(id) && id !== currentQueueId
+      && !!db.get('SELECT 1 FROM queue WHERE roomId=? AND queueId=? AND playedAt IS NULL', [roomId, id])
+    if (!pending(queueId) || queueId === afterQueueId || (afterQueueId !== null && !pending(afterQueueId))) {
+      throw new Error('Only upcoming songs in this room can be reordered. Refresh the queue and try again.')
+    }
+    db.run('INSERT INTO queueOrderMoves(roomId,queueId,afterQueueId) VALUES (?,?,?)', [roomId, queueId, afterQueueId])
+  }
+
+  // Swap a singer's songs in their existing slots, including explicit host
+  // ordering. Moving the raw chain head would otherwise change singer priority.
+  static swap (roomId: number, first: number, second: number, currentQueueId?: number): void {
+    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(second) || first === second || [first, second].includes(currentQueueId)) throw new Error('Choose two upcoming songs')
+    db.exec('BEGIN IMMEDIATE')
+    db.exec('PRAGMA defer_foreign_keys = ON')
+    try {
+      const rows = db.all<{ queueId: number, userId: number, prevQueueId: number | null }>('SELECT queueId,userId,prevQueueId FROM queue WHERE roomId=? AND queueId IN (?,?) AND playedAt IS NULL', [roomId, first, second])
+      if (rows.length !== 2 || rows[0].userId !== rows[1].userId) throw new Error('Only your own upcoming songs can be swapped')
+      const parent = (id: number) => rows.find(row => row.queueId === id).prevQueueId
+      const exchange = (id: number | null) => id === first ? second : id === second ? first : id
+      db.run(`UPDATE queue SET prevQueueId=CASE
+        WHEN queueId=? THEN ? WHEN queueId=? THEN ?
+        WHEN prevQueueId=? THEN ? WHEN prevQueueId=? THEN ? ELSE prevQueueId END WHERE roomId=?`,
+      [first, exchange(parent(second)), second, exchange(parent(first)), first, second, second, first, roomId])
+      db.run(`UPDATE queueOrderMoves SET queueId=CASE WHEN queueId=? THEN ? WHEN queueId=? THEN ? ELSE queueId END,
+        afterQueueId=CASE WHEN afterQueueId=? THEN ? WHEN afterQueueId=? THEN ? ELSE afterQueueId END WHERE roomId=?`,
+      [first, second, second, first, first, second, second, first, roomId])
+      db.exec('COMMIT')
+    } catch (error) {
+      db.exec('ROLLBACK')
+      throw error
+    }
   }
 
   /**

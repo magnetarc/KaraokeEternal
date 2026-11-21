@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ensureState } from 'redux-optimistic-ui'
 import { useAppDispatch, useAppSelector } from 'store/hooks'
-import { queueSong } from 'routes/Queue/modules/queue'
+import { queueSong, reorderItem } from 'routes/Queue/modules/queue'
+import getUpcomingSongItems from 'routes/Queue/selectors/getUpcomingSongItems'
 import getSongsStatus from '../selectors/getSongsStatus'
 import { toggleSongStarred } from 'store/modules/userStars'
 import { formatDuration } from 'lib/dateTime'
@@ -96,6 +97,7 @@ export default function ModernLibrary () {
   const starredSongs = useAppSelector(state => ensureState(state.userStars).starredSongs)
   const stars = useMemo(() => new Set(starredSongs), [starredSongs])
   const songStatus = useAppSelector(getSongsStatus)
+  const upcomingItems = useAppSelector(getUpcomingSongItems)
   const containerRef = useRef<HTMLElement>(null)
   const { state: filters, change, onScroll } = useBrowseState(browseDefaults, containerRef)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -198,6 +200,13 @@ export default function ModernLibrary () {
                     dispatch(queueSong(song.songId))
                     setMessage(`${song.title} added`)
                   }}
+                  onPlayNext={user.isAdmin && user.roomId && !upcomingItems[song.songId]
+                    ? () => {
+                        if (song.numMedia > 1) setVersionSong({ songId: song.songId, title: song.title, artist: artists[song.artistId]?.name ?? '', position: 'next' })
+                        else dispatch(queueSong(song.songId, undefined, 'next'))
+                      }
+                    : undefined}
+                  onMoveTop={user.isAdmin && upcomingItems[song.songId] ? () => dispatch(reorderItem({ queueId: upcomingItems[song.songId], afterQueueId: null })) : undefined}
                   onStar={() => dispatch(toggleSongStarred(song.songId))}
                   onVersions={() => setVersionSong({ songId: song.songId, title: song.title, artist: artists[song.artistId]?.name ?? '' })}
                 >
@@ -222,11 +231,11 @@ export default function ModernLibrary () {
           <SongVersions
             key={versionSong.songId}
             song={versionSong}
-            canQueue={!!user.roomId && !songStatus.upcoming.has(versionSong.songId) && songStatus.current !== versionSong.songId}
+            canQueue={!!user.roomId && !songStatus.upcoming.has(versionSong.songId) && (versionSong.position === 'next' || songStatus.current !== versionSong.songId)}
             unavailableReason={!user.roomId ? 'Join a room to add this song.' : 'This song is already queued.'}
             onClose={() => setVersionSong(null)}
             onQueue={(mediaId) => {
-              dispatch(queueSong(versionSong.songId, mediaId))
+              dispatch(queueSong(versionSong.songId, mediaId, versionSong.position))
               setMessage(`${versionSong.title} added with your selected version`)
               setVersionSong(null)
             }}

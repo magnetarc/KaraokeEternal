@@ -2,7 +2,7 @@ import { RootState } from 'store/store'
 import { ensureState } from 'redux-optimistic-ui'
 import { createSelector } from '@reduxjs/toolkit'
 import type { QueueItem } from 'shared/types'
-import { getQueueHistory, getUpcomingByUser } from './getRoundRobinQueue'
+import getRoundRobinQueue, { getQueueHistory, getUpcomingByUser } from './getRoundRobinQueue'
 import getPendingQueue, { type PendingQueueItem } from './getPendingQueue'
 import roundRobin from './roundRobin'
 
@@ -31,8 +31,8 @@ export type DisplayRow = QueueRow | PendingRow
 // singer's pending songs follow their queued ones. Display only; the player
 // uses getRoundRobinQueue, so a song that isn't ready by its turn just slips.
 const getDisplayQueue = createSelector(
-  [getEntities, getQueueHistory, getUpcomingByUser, getPendingQueue, getNextUserId],
-  (entities, { history, lockedQueueId }, upcomingByUser, pending, nextUserId): DisplayRow[] => {
+  [getEntities, getQueueHistory, getUpcomingByUser, getPendingQueue, getNextUserId, getRoundRobinQueue],
+  (entities, { history, lockedQueueId }, upcomingByUser, pending, nextUserId, queue): DisplayRow[] => {
     const queueRow = (queueId: number): DisplayRow => ({ kind: 'queue', key: String(queueId), userId: entities[queueId].userId, queueId })
 
     const prefix = history.map(queueRow)
@@ -65,7 +65,10 @@ const getDisplayQueue = createSelector(
       else lists.set(item.userId, [row])
     }
 
-    return [...prefix, ...roundRobin(lists, playedUserIds), ...errored]
+    let index = 0
+    return [...prefix, ...roundRobin(lists, playedUserIds), ...errored].map(row =>
+      row.kind === 'queue' ? queueRow(queue.result[index++] ?? row.queueId) : row,
+    )
   },
 )
 

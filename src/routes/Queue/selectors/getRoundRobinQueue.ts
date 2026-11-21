@@ -4,11 +4,14 @@ import { createSelector } from '@reduxjs/toolkit'
 import type { QueueItem } from 'shared/types'
 import getPlayerHistory from './getPlayerHistory'
 import roundRobin from './roundRobin'
+import { applyQueueMoves, type QueueOrderMove } from 'shared/queueOrder'
 
 const getResult = (state: RootState) => ensureState(state.queue).result
 const getEntities = (state: RootState) => ensureState(state.queue).entities
 const getQueueId = (state: RootState) => state.status.queueId
 const getNextUserId = (state: RootState) => state.status.nextUserId
+const noMoves: QueueOrderMove[] = []
+const getMoves = (state: RootState) => ensureState(state.queue).moves ?? noMoves
 
 // The items that aren't re-ordered: played, current, and the next user's
 // locked-in item, in that order
@@ -64,12 +67,15 @@ export const getUpcomingByUser = createSelector(
 )
 
 const getRoundRobinQueue = createSelector(
-  [getEntities, getQueueHistory, getUpcomingByUser],
-  (entities, { history }, upcomingByUser) => {
+  [getEntities, getQueueHistory, getUpcomingByUser, getMoves, getPlayerHistory, getQueueId],
+  (entities, { history }, upcomingByUser, moves, played, currentId) => {
     const playedUserIds = history.map(queueId => (entities[queueId] as QueueItem).userId) // should be no optimistic items
+    const normal = history.concat(roundRobin(upcomingByUser, playedUserIds))
+    const fixed = new Set([...played, currentId])
+    const upcoming = normal.filter(id => !fixed.has(id))
 
     return {
-      result: history.concat(roundRobin(upcomingByUser, playedUserIds)),
+      result: normal.filter(id => fixed.has(id)).concat(applyQueueMoves(upcoming, moves)),
       entities: entities as Record<number, QueueItem>,
     }
   },

@@ -1,5 +1,10 @@
 # Modern browser test branch
 
+## Queue controls update (21 November 2026)
+
+See [queue controls release notes](QUEUE-CONTROLS.md) for button alignment,
+Play next, Move to top, up/down arrows and version-picker backdrop dismissal.
+
 ## Party usability release (20 November 2026)
 
 See [the current release notes](PARTY-USABILITY.md) for the compact browser,

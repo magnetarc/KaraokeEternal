@@ -4,22 +4,25 @@ import getUpcoming from '../selectors/getUpcoming'
 import {
   QUEUE_ADD,
   QUEUE_MOVE,
+  QUEUE_REORDER,
   QUEUE_PUSH,
   QUEUE_REMOVE,
   LOGOUT,
 } from 'shared/actionTypes'
 import type { QueueItem, OptimisticQueueItem } from 'shared/types'
+import type { QueueOrderMove } from 'shared/queueOrder'
 
 // ------------------------------------
 // Actions
 // ------------------------------------
 const logout = createAction(LOGOUT)
-export const moveItem = createAction<{ queueId: number, prevQueueId: number }>(QUEUE_MOVE)
+export const moveItem = createAction<{ queueId: number, prevQueueId?: number, swapQueueId?: number }>(QUEUE_MOVE)
+export const reorderItem = createAction<QueueOrderMove>(QUEUE_REORDER)
 export const removeItem = createAction<{ queueId: number | number[] }>(QUEUE_REMOVE)
 export const queuePush = createAction<QueueState>(QUEUE_PUSH)
 
-export const queueSong = createAction(QUEUE_ADD, (songId: number, mediaId?: number) => ({
-  payload: { songId, ...(mediaId !== undefined ? { mediaId } : {}) },
+export const queueSong = createAction(QUEUE_ADD, (songId: number, mediaId?: number, position?: 'next') => ({
+  payload: { songId, ...(mediaId !== undefined ? { mediaId } : {}), ...(position ? { position } : {}) },
   meta: { isOptimistic: true },
 }))
 
@@ -35,6 +38,7 @@ export interface QueueState {
   isLoading: boolean
   result: number[] // queueIds
   entities: Record<number, QueueItem | OptimisticQueueItem>
+  moves?: QueueOrderMove[]
 }
 
 const initialState: QueueState = {
@@ -61,10 +65,12 @@ const queueReducer = createReducer(initialState, (builder) => {
       isLoading: false,
       result: payload.result,
       entities: payload.entities,
+      moves: payload.moves,
     }))
     .addCase(logout, (state) => {
       state.result = []
       state.entities = {}
+      state.moves = undefined
     })
 })
 
