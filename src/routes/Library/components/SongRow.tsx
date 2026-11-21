@@ -32,24 +32,16 @@ export default function SongRow ({ title, artist, versionCount = 0, starred, que
         <button className={styles.star} aria-pressed={starred} aria-label={`${starred ? 'Unfavourite' : 'Favourite'} ${title}`} onClick={onStar}>{starred ? '★' : '☆'}</button>
         <button className={styles.add} disabled={queued || !canAdd} onClick={onAdd} aria-label={`Add ${title} to queue`}>{queued ? 'Queued' : canAdd ? 'Add' : unavailable}</button>
         {(children || onPlayNext || onMoveTop) && (
-          <details className={styles.rowMenu}>
+          <details className={styles.rowMenu} data-menu-popup>
             <summary aria-label={`Details for ${title}`}>⋯</summary>
             <div>
               {onPlayNext && (
-                <button onClick={(event) => {
-                  event.currentTarget.closest('details')?.removeAttribute('open')
-                  onPlayNext()
-                }}
-                >
+                <button onClick={onPlayNext}>
                   Play next
                 </button>
               )}
               {onMoveTop && (
-                <button onClick={(event) => {
-                  event.currentTarget.closest('details')?.removeAttribute('open')
-                  onMoveTop()
-                }}
-                >
+                <button onClick={onMoveTop}>
                   Move to top
                 </button>
               )}

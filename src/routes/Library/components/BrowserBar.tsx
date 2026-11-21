@@ -9,7 +9,7 @@ export default function BrowserBar ({ children, isAdmin, book = false, category,
         <nav aria-label='Browser navigation'>
           <Link to='/queue'>Queue</Link>
           <Link to='/account'>Settings</Link>
-          <details className={styles.moreMenu}>
+          <details className={styles.moreMenu} data-menu-popup>
             <summary>More</summary>
             <div>
               <Link to={book ? '/library' : '/songbook'}>{book ? 'Playable library' : 'Full songbook'}</Link>

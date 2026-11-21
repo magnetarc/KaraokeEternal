@@ -142,15 +142,12 @@ const QueueList = ({ section }: { section: 'current' | 'upcoming' | 'history' })
               <button className={styles.moveArrow} aria-label='Move down' title={user.isAdmin ? 'Move down' : 'Move down in your songs'} disabled={moveIndex < 0 || moveIndex === moveOrder.length - 1} onClick={() => handleMove(qId, 'down')}>↓</button>
               <button className={styles.danger} onClick={() => dispatch(removeItem({ queueId: qId }))}>Remove</button>
               {user.isAdmin && (
-                <details className={styles.moreMenu}>
+                <details className={styles.moreMenu} data-menu-popup>
                   <summary aria-label={`More options for ${song.title}`}>⋯</summary>
                   <div>
                     <button
                       disabled={moveIndex <= 0}
-                      onClick={(event) => {
-                        event.currentTarget.closest('details')?.removeAttribute('open')
-                        handleMove(qId, 'top')
-                      }}
+                      onClick={() => handleMove(qId, 'top')}
                     >
                       Move to top
                     </button>

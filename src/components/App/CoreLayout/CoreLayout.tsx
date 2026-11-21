@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useMatch } from 'react-router'
 import { useAppDispatch, useAppSelector } from 'store/hooks'
 import useResizeObserver from 'lib/useResizeObserver'
+import useMenuDismissal from 'lib/useMenuDismissal'
 // global stylesheets should be imported before any
 // components that will import their own modular css
 import '../../../styles/global.css'
@@ -16,6 +17,7 @@ import Routes from '../Routes/Routes'
 import { clearErrorMessage, setFooterHeight, setHeaderHeight } from 'store/modules/ui'
 
 const CoreLayout = () => {
+  useMenuDismissal()
   const isPlayerRoute = useMatch('/player')
   const dispatch = useAppDispatch()
   const isSignedIn = useAppSelector(state => state.user.userId !== null)

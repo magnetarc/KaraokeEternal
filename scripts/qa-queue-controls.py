@@ -19,6 +19,7 @@ def passed(message):
 
 def sql(statement, args=()):
     with sqlite3.connect(FIXTURE['database']) as db:
+        db.execute('PRAGMA foreign_keys=ON')
         return db.execute(statement, args).fetchall()
 
 def login(page, user='host'):

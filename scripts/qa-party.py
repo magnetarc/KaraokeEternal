@@ -35,6 +35,7 @@ with sync_playwright() as p:
     desktop=browser.new_context(viewport={'width':1366,'height':900})
     assert desktop.request.get(BASE+'/api/instance').json()=={'isTest':True}
     with sqlite3.connect(fixture['database']) as db:
+        db.execute('PRAGMA foreign_keys=ON')
         assert db.execute("SELECT data FROM prefs WHERE key='modernTestInstance'").fetchone()[0]=='true'
         db.execute('DELETE FROM queue');db.execute('DELETE FROM songPlayCounts')
     host=desktop.new_page();host.on('pageerror',lambda error:errors.append(str(error)));login(host)
@@ -102,7 +103,9 @@ with sync_playwright() as p:
     expect(mobile.get_by_role('article').first.get_by_role('button',name='Add Zebra Encore to queue',exact=True)).to_be_disabled()
     passed('phone version picker queues the exact selected backing track and retains it after reload')
     # Close any player before resetting only this marked fixture's queue.
-    with sqlite3.connect(fixture['database']) as db: db.execute('DELETE FROM queue')
+    with sqlite3.connect(fixture['database']) as db:
+        db.execute('PRAGMA foreign_keys=ON')
+        db.execute('DELETE FROM queue')
     host.goto(BASE+'/library?roomId=1')
     find_and_add(host,'Synthetic CBR ending');find_and_add(host,'Synthetic VBR ending');find_and_add(host,'Alpha Song 001')
     player=desktop.new_page();player.on('pageerror',lambda error:errors.append(str(error)));player.goto(BASE+'/player')

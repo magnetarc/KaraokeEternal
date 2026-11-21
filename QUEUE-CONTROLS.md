@@ -1,5 +1,12 @@
 # Queue controls update — 21 November 2026
 
+Popup-menu follow-up: queue/library/songbook/toolbar menus now dismiss on an
+outside click/tap, focus leaving, Escape or an action. Opening another menu
+closes the previous one. A single delegated listener set handles these menus;
+ordinary details panels such as History are excluded. Escape and dialog actions
+restore focus to the menu trigger. `python scripts/qa-menu-dismissal.py` checks
+these behaviours on the same isolated fixture.
+
 Sort/Filters now share a bottom edge and 44px control height. Previous/Next have
 matching heights and the page label stays centred. Song-row actions also align.
 
