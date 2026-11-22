@@ -7,6 +7,7 @@ import getUpcomingSongItems from 'routes/Queue/selectors/getUpcomingSongItems'
 import useBrowseState from '../useBrowseState'
 import BrowserBar from '../components/BrowserBar'
 import BrowsePagination from '../components/BrowsePagination'
+import BrowseSearch from '../components/BrowseSearch'
 import SongRow from '../components/SongRow'
 import SongVersions, { type VersionSong } from '../components/SongVersions/SongVersions'
 import { toggleSongStarred } from 'store/modules/userStars'
@@ -127,7 +128,7 @@ export default function SongbookView () {
     const controller = new AbortController()
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the request indicator when URL filters change
     setLoading(true)
-    const timer = setTimeout(() => {
+    const load = () => {
       const params = new URLSearchParams()
       for (const [key, value] of Object.entries(filters)) if (key !== 'mode' && value !== '' && value !== false) params.set(key === 'query' ? 'q' : key, value === true ? '1' : String(value))
       api.get<SongbookListing>('/?' + params, { signal: controller.signal }).then((data) => {
@@ -143,9 +144,9 @@ export default function SongbookView () {
           setLoading(false)
         }
       })
-    }, 200)
+    }
+    load()
     return () => {
-      clearTimeout(timer)
       controller.abort()
     }
   }, [filters, revision, linkedStars])
@@ -186,11 +187,7 @@ export default function SongbookView () {
       <div className={styles.shell}>
         <BrowserBar isAdmin={user.isAdmin} book category={title} onCategories={showSongs ? () => update(songbookDefaults, 'cards') : undefined}>
           <div className={styles.searchRow}>
-            <div className={styles.searchbox}>
-              <span aria-hidden='true'>⌕</span>
-              <input ref={searchInputRef} type='search' aria-label='Search full songbook' placeholder='Search songs or artists' value={filters.query} onChange={e => change({ query: e.target.value, offset: 0, mode: 'search' }, true)} />
-              {filters.query && <button aria-label='Clear songbook search' onClick={() => update({ query: '' })}>×</button>}
-            </div>
+            <BrowseSearch inputRef={searchInputRef} label='Search full songbook' clearLabel='Clear songbook search' query={filters.query} onSearch={query => change({ query, offset: 0, mode: 'search' }, true)} />
             <button className={styles.favourites} aria-pressed={filters.favourites} onClick={() => update({ favourites: !filters.favourites })}>
               ★
               <span>Favourites</span>

@@ -16,6 +16,7 @@ import useBrowseState from '../useBrowseState'
 import { browseOptions } from '../browseOptions'
 import BrowserBar from '../components/BrowserBar'
 import BrowsePagination from '../components/BrowsePagination'
+import BrowseSearch from '../components/BrowseSearch'
 import SongRow from '../components/SongRow'
 import SongVersions, { type VersionSong } from '../components/SongVersions/SongVersions'
 
@@ -108,7 +109,8 @@ export default function ModernLibrary () {
   const resultHeadingRef = useRef<HTMLHeadingElement>(null)
   const allSongs = useMemo(() => songs.result.map(id => songs.entities[id]), [songs])
   const options = useMemo(() => browseOptions(allSongs), [allSongs])
-  const refinements = useMemo(() => browseOptions(allSongs, filters), [allSongs, filters])
+  const { genre, decade, language, performance, collection } = filters
+  const refinements = useMemo(() => browseOptions(allSongs, { genre, decade, language, performance, collection }), [allSongs, genre, decade, language, performance, collection])
   const canRefine = user.isAdmin || Object.entries(refinements).some(([key, values]) => values.length > 0 && !(key === 'genre' && filters.genre))
   // Queue additions must not reorder the list underneath the singer.
   const results = useMemo(() => browseSongs(allSongs, artists, stars, filters, { songs: sharedStars.songs, artists: sharedStars.artists }), [allSongs, artists, stars, filters, sharedStars])
@@ -124,11 +126,7 @@ export default function ModernLibrary () {
       <div className={styles.shell}>
         <BrowserBar isAdmin={user.isAdmin} category={title} onCategories={showSongs ? () => update(defaultFilters, 'cards') : undefined}>
           <div className={styles.searchRow}>
-            <div className={styles.searchbox}>
-              <span aria-hidden='true'>⌕</span>
-              <input ref={searchInputRef} type='search' aria-label='Search songs or artists' placeholder='Search songs or artists' value={filters.query} onChange={e => change({ query: e.target.value, page: 0, mode: 'search' }, true)} />
-              {filters.query && <button onClick={() => update({ query: '' })} aria-label='Clear song search'>×</button>}
-            </div>
+            <BrowseSearch inputRef={searchInputRef} label='Search songs or artists' clearLabel='Clear song search' query={filters.query} onSearch={query => change({ query, page: 0, mode: 'search' }, true)} />
             <button className={styles.favourites} aria-pressed={filters.favourites} onClick={() => update({ favourites: !filters.favourites })}>
               ★
               <span>Favourites</span>

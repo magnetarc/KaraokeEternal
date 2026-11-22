@@ -8,6 +8,26 @@ const songs: Song[] = [
   { artistId: 1, songId: 2, title: 'Another Dawn', duration: 120, numMedia: 1 },
 ]
 describe('modern song browser', () => {
+  it('keeps cached search text current after title or artist changes', () => {
+    const song = { ...songs[0] }
+    const names = { 1: { ...artists[1] } }
+    const find = (query: string) => browseSongs([song], names, new Set(), { ...defaultFilters, query })
+    expect(find('beyonce night')).toEqual([song])
+    names[1] = { ...names[1], name: 'New Singer' }
+    expect(find('beyonce')).toEqual([])
+    expect(find('new night')).toEqual([song])
+    song.title = 'Morning Light'
+    expect(find('night')).toEqual([])
+    expect(find('new morning')).toEqual([song])
+  })
+  it('recalculates recommendations and stars even when search text is cached', () => {
+    const options = songs.map(song => ({ ...song, title: 'Perfect', categories: { ...emptyCategories } }))
+    const filters = { ...defaultFilters, query: 'perfect' }
+    expect(browseSongs(options, artists, new Set(), filters)[0].songId).toBe(1)
+    options[1].completedPlays = 10
+    expect(browseSongs(options, artists, new Set(), filters)[0].songId).toBe(2)
+    expect(browseSongs(options, artists, new Set([1]), { ...filters, favourites: true }).map(song => song.songId)).toEqual([1])
+  })
   it('seeds category recommendations before history exists and learns from completed plays', () => {
     const seeded = [{ ...songs[0], title: 'Zulu', recommendation: 3 }, { ...songs[1], title: 'Alpha', recommendation: 0 }]
     expect(browseSongs(seeded, artists, new Set(), defaultFilters).map(s => s.title)).toEqual(['Zulu', 'Alpha'])
